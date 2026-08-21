@@ -9,203 +9,147 @@
 <script src="xlsx.full.min.js"></script>
 <style>
   :root{
-    --ink:#0F2A43;
-    --ink-soft:#233A52;
-    --slate:#5B6B7F;
-    --slate-light:#8A97A8;
-    --bg:#F3F5F8;
-    --surface:#FFFFFF;
-    --border:#E3E7ED;
-    --accent:#146C5B;
-    --accent-soft:#E4F1EC;
-    --ok:#1B8A5A;
-    --ok-bg:#E7F5EC;
-    --warn:#B7791F;
-    --warn-bg:#FCF3DE;
-    --bad:#C53030;
-    --bad-bg:#FCEAEA;
-    --moroso:#6B46C1;
-    --moroso-bg:#F1EBFB;
+    --ink:#0F2A43; --ink-soft:#233A52; --slate:#5B6B7F; --slate-light:#8A97A8;
+    --bg:#F3F5F8; --surface:#FFFFFF; --border:#E3E7ED;
+    --accent:#146C5B; --accent-soft:#E4F1EC;
+    --ok:#1B8A5A; --ok-bg:#E7F5EC;
+    --warn:#B7791F; --warn-bg:#FCF3DE;
+    --bad:#C53030; --bad-bg:#FCEAEA;
+    --moroso:#6B46C1; --moroso-bg:#F1EBFB;
+    --plan:#2B6CB0; --plan-bg:#E7F0FB;
     --radius:10px;
     --shadow: 0 1px 2px rgba(15,42,67,.06), 0 4px 16px rgba(15,42,67,.04);
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
-  body{
-    background:var(--bg);
-    color:var(--ink);
-    font-family:'Inter',system-ui,sans-serif;
-    -webkit-font-smoothing:antialiased;
-  }
+  body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
   h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;}
   .mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+  .wrap{max-width:1280px;margin:0 auto;padding:0 20px 80px;}
 
-  .wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px;}
-
-  header.top{
-    background:linear-gradient(135deg,var(--ink) 0%,#173C5C 100%);
-    color:#fff;
-    padding:36px 0 34px;
-    margin-bottom:-30px;
-  }
+  header.top{background:linear-gradient(135deg,var(--ink) 0%,#173C5C 100%);color:#fff;padding:36px 0 34px;margin-bottom:-30px;}
   header.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;}
   .brand{display:flex;align-items:center;gap:14px;}
-  .brand-mark{
-    width:42px;height:42px;border-radius:10px;
-    background:var(--accent);
-    display:flex;align-items:center;justify-content:center;
-    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:#fff;
-    flex-shrink:0;
-  }
+  .brand-mark{width:42px;height:42px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:#fff;flex-shrink:0;}
   .brand h1{font-size:19px;margin:0;font-weight:600;letter-spacing:.2px;}
   .brand p{margin:2px 0 0;font-size:12.5px;color:#B9C7D6;}
-  .top-badge{
-    font-size:11.5px;color:#CFE0D9;background:rgba(255,255,255,.08);
-    border:1px solid rgba(255,255,255,.16);
-    padding:6px 12px;border-radius:100px;
-  }
+  .top-badge{font-size:11.5px;color:#CFE0D9;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);padding:6px 12px;border-radius:100px;}
 
-  .card{
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:var(--radius);
-    box-shadow:var(--shadow);
-  }
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
 
-  /* ---------- Upload section ---------- */
-  .upload-grid{
-    display:grid;grid-template-columns:1fr 1fr;gap:18px;
-    margin-top:34px;position:relative;z-index:2;
-  }
+  .upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:34px;position:relative;z-index:2;}
   @media(max-width:760px){.upload-grid{grid-template-columns:1fr;}}
-
   .upload-card{padding:22px;}
-  .upload-card .step{
-    display:inline-flex;align-items:center;gap:6px;
-    font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-    color:var(--accent);margin-bottom:10px;
-  }
+  .upload-card .step{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
   .upload-card h3{margin:0 0 4px;font-size:16px;}
   .upload-card .hint{color:var(--slate);font-size:13px;margin:0 0 16px;}
-
-  .dropzone{
-    border:1.5px dashed #C7D0DB;
-    border-radius:8px;
-    padding:26px 16px;
-    text-align:center;
-    cursor:pointer;
-    transition:border-color .15s, background .15s;
-    background:#FBFCFD;
-  }
-  .dropzone:hover, .dropzone.drag{
-    border-color:var(--accent);
-    background:var(--accent-soft);
-  }
+  .dropzone{border:1.5px dashed #C7D0DB;border-radius:8px;padding:26px 16px;text-align:center;cursor:pointer;transition:border-color .15s, background .15s;background:#FBFCFD;}
+  .dropzone:hover, .dropzone.drag{border-color:var(--accent);background:var(--accent-soft);}
   .dropzone svg{opacity:.55;margin-bottom:8px;}
   .dropzone .dz-title{font-size:13.5px;font-weight:600;color:var(--ink-soft);}
   .dropzone .dz-sub{font-size:12px;color:var(--slate-light);margin-top:3px;}
   .dropzone input{display:none;}
-
-  .file-chip{
-    display:flex;align-items:center;justify-content:space-between;
-    background:var(--ok-bg);border:1px solid #BFE3CD;
-    border-radius:8px;padding:10px 12px;margin-top:10px;font-size:13px;
-  }
+  .file-chip{display:flex;align-items:center;justify-content:space-between;background:var(--ok-bg);border:1px solid #BFE3CD;border-radius:8px;padding:10px 12px;margin-top:10px;font-size:13px;}
   .file-chip .name{font-weight:600;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;}
   .file-chip .meta{color:var(--slate);font-size:11.5px;}
-  .file-chip button{
-    border:none;background:none;color:var(--bad);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;
-  }
-  .file-error{
-    background:var(--bad-bg);border:1px solid #F0BCBC;color:var(--bad);
-    border-radius:8px;padding:10px 12px;margin-top:10px;font-size:12.5px;
-  }
+  .file-chip button{border:none;background:none;color:var(--bad);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;}
+  .file-error{background:var(--bad-bg);border:1px solid #F0BCBC;color:var(--bad);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:12.5px;}
 
-  /* ---------- Controls ---------- */
-  .controls-bar{
-    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;
-    margin-top:20px;padding:16px 20px;
-  }
+  .controls-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-top:20px;padding:16px 20px;}
   .slider-group{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--slate);}
   .slider-group input[type=range]{width:150px;accent-color:var(--accent);}
   .slider-group .val{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--ink-soft);min-width:34px;}
 
-  .btn{
-    font-family:'Inter',sans-serif;font-weight:600;font-size:14px;
-    border:none;border-radius:8px;padding:12px 22px;cursor:pointer;
-    transition:transform .1s, box-shadow .15s, opacity .15s;
-  }
+  .btn{font-family:'Inter',sans-serif;font-weight:600;font-size:13.5px;border:none;border-radius:8px;padding:11px 18px;cursor:pointer;transition:transform .1s, box-shadow .15s, opacity .15s;display:inline-flex;align-items:center;gap:6px;}
   .btn:active{transform:scale(.98);}
   .btn-primary{background:var(--accent);color:#fff;box-shadow:0 2px 10px rgba(20,108,91,.28);}
   .btn-primary:hover{box-shadow:0 4px 16px rgba(20,108,91,.36);}
   .btn-primary:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;}
   .btn-ghost{background:#fff;color:var(--ink-soft);border:1px solid var(--border);}
   .btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-sm{padding:6px 10px;font-size:12px;border-radius:6px;}
 
-  /* ---------- Results ---------- */
   #results{display:none;margin-top:8px;}
-  .kpi-row{
-    display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:26px 0 22px;
-  }
+  .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:26px 0 22px;}
   @media(max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr);}}
-  .kpi{
-    padding:18px 16px;border-radius:10px;border:1px solid var(--border);background:#fff;
-  }
+  .kpi{padding:18px 16px;border-radius:10px;border:1px solid var(--border);background:#fff;}
   .kpi .n{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;line-height:1;}
   .kpi .l{font-size:11.5px;color:var(--slate);margin-top:8px;line-height:1.35;}
   .kpi.ok .n{color:var(--ok);} .kpi.warn .n{color:var(--warn);}
   .kpi.bad .n{color:var(--bad);} .kpi.moroso .n{color:var(--moroso);}
   .kpi.neutral .n{color:var(--ink);}
 
+  .action-bar{display:flex;gap:10px;flex-wrap:wrap;}
+
   .tabs{display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:0;overflow-x:auto;}
-  .tab-btn{
-    font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--slate);
-    background:none;border:none;padding:12px 16px;cursor:pointer;white-space:nowrap;
-    border-bottom:2.5px solid transparent;display:flex;align-items:center;gap:7px;
-  }
+  .tab-btn{font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--slate);background:none;border:none;padding:12px 16px;cursor:pointer;white-space:nowrap;border-bottom:2.5px solid transparent;display:flex;align-items:center;gap:7px;}
   .tab-btn.active{color:var(--ink);border-bottom-color:var(--accent);}
-  .tab-count{
-    background:#EEF1F5;color:var(--slate);font-size:11px;font-weight:700;
-    padding:1px 7px;border-radius:100px;
-  }
+  .tab-count{background:#EEF1F5;color:var(--slate);font-size:11px;font-weight:700;padding:1px 7px;border-radius:100px;}
   .tab-btn.active .tab-count{background:var(--accent-soft);color:var(--accent);}
 
   .table-card{border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden;}
   .table-scroll{overflow-x:auto;}
-  table{width:100%;border-collapse:collapse;font-size:13px;}
-  thead th{
-    text-align:left;background:#F8F9FB;color:var(--slate);
-    font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;
-    padding:11px 14px;border-bottom:1px solid var(--border);white-space:nowrap;
-  }
-  tbody td{padding:11px 14px;border-bottom:1px solid #F0F2F5;color:var(--ink-soft);vertical-align:top;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  thead th{text-align:left;background:#F8F9FB;color:var(--slate);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  tbody td{padding:9px 12px;border-bottom:1px solid #F0F2F5;color:var(--ink-soft);vertical-align:middle;}
   tbody tr:last-child td{border-bottom:none;}
   tbody tr:hover{background:#FAFBFC;}
   td.money{font-family:'IBM Plex Mono',monospace;font-weight:600;text-align:right;white-space:nowrap;}
+  td.nowrap{white-space:nowrap;}
 
-  .pill{
-    display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:100px;white-space:nowrap;
+  select.cell-select, input.cell-input{
+    font-family:'Inter',sans-serif;font-size:12px;border:1px solid var(--border);border-radius:6px;
+    padding:5px 7px;background:#fff;color:var(--ink-soft);max-width:190px;
   }
+  select.cell-select:focus, input.cell-input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent);}
+  input.cell-input.money-input{width:100px;font-family:'IBM Plex Mono',monospace;text-align:right;}
+  input.cell-input.small{width:64px;}
+  input.cell-input:disabled{background:#F5F6F8;color:var(--slate-light);}
+
+  .linked-info{display:flex;flex-direction:column;gap:2px;}
+  .linked-info .u{font-weight:600;color:var(--ink-soft);}
+  .linked-info .p{color:var(--slate);font-size:11.5px;}
+  .unlink-btn{border:none;background:none;color:var(--bad);font-size:11px;cursor:pointer;padding:0;margin-top:3px;text-align:left;}
+  .unlink-btn:hover{text-decoration:underline;}
+
+  .pill{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:100px;white-space:nowrap;}
   .pill.ok{background:var(--ok-bg);color:var(--ok);}
   .pill.warn{background:var(--warn-bg);color:var(--warn);}
   .pill.bad{background:var(--bad-bg);color:var(--bad);}
   .pill.moroso{background:var(--moroso-bg);color:var(--moroso);}
+  .pill.plan{background:var(--plan-bg);color:var(--plan);}
+
+  .plan-fields{display:flex;gap:5px;align-items:center;}
+  .plan-fields .lbl{font-size:9.5px;color:var(--slate-light);display:block;margin-bottom:1px;}
 
   .empty-state{padding:50px 20px;text-align:center;color:var(--slate);}
   .empty-state .big{font-size:32px;margin-bottom:8px;}
 
-  .section-head{display:flex;align-items:center;justify-content:space-between;margin:38px 0 4px;flex-wrap:wrap;gap:10px;}
+  .section-head{display:flex;align-items:center;justify-content:space-between;margin:38px 0 4px;flex-wrap:wrap;gap:14px;}
   .section-head h2{font-size:18px;margin:0;}
   .section-head p{margin:2px 0 0;font-size:12.5px;color:var(--slate);}
 
   footer{margin-top:60px;padding-top:22px;border-top:1px solid var(--border);color:var(--slate-light);font-size:12px;text-align:center;}
 
-  .toast{
-    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
-    background:var(--ink);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;
-    box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:50;
-  }
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:50;max-width:90vw;text-align:center;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+
+  /* ---------------- Impresión ---------------- */
+  #print-area{display:none;}
+  @media print{
+    body *{visibility:hidden;}
+    #print-area, #print-area *{visibility:visible;}
+    #print-area{display:block !important;position:absolute;top:0;left:0;width:100%;padding:20px;}
+    #print-area h1{font-size:18px;margin:0 0 2px;}
+    #print-area .p-sub{font-size:11px;color:#555;margin:0 0 18px;}
+    #print-area h2{font-size:13px;margin:22px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px;}
+    #print-area table{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:6px;}
+    #print-area th{text-align:left;border-bottom:1px solid #999;padding:4px 6px;font-size:9px;text-transform:uppercase;}
+    #print-area td{padding:4px 6px;border-bottom:1px solid #eee;}
+    #print-area .p-kpis{display:flex;gap:18px;margin-bottom:6px;flex-wrap:wrap;}
+    #print-area .p-kpi{font-size:11px;}
+    #print-area .p-kpi b{font-size:15px;display:block;}
+  }
 </style>
 </head>
 <body>
@@ -219,7 +163,7 @@
         <p>Cartola bancaria vs Sistema de Edificio · 100% en tu navegador, sin subir datos a ningún servidor</p>
       </div>
     </div>
-    <div class="top-badge">Motor de cruce v1.0</div>
+    <div class="top-badge">Motor de cruce v2.0</div>
   </div>
 </header>
 
@@ -271,7 +215,11 @@
         <h2>Resultado de la conciliación</h2>
         <p id="result-sub">—</p>
       </div>
-      <button class="btn btn-ghost" id="btn-export">⬇ Descargar reporte Excel</button>
+      <div class="action-bar">
+        <button class="btn btn-ghost" id="btn-imprimir">🖨 Imprimir</button>
+        <button class="btn btn-ghost" id="btn-mail">✉ Enviar por mail</button>
+        <button class="btn btn-primary" id="btn-export">⬇ Descargar Excel</button>
+      </div>
     </div>
 
     <div class="kpi-row" id="kpi-row"></div>
@@ -280,6 +228,11 @@
     <div class="card table-card">
       <div class="table-scroll" id="table-container"></div>
     </div>
+
+    <p style="font-size:11.5px;color:var(--slate-light);margin-top:14px;">
+      💡 Todo lo que edites aquí (estados, vínculos, tipos de pago, planes de pago) se refleja en el Excel que descargues,
+      en la impresión y en el resumen del correo. Los cambios se pierden si recargas la página sin descargar.
+    </p>
   </div>
 
   <footer>
@@ -288,6 +241,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<div id="print-area"></div>
 
 <script>
 /* =========================================================================
@@ -633,12 +587,15 @@ function conciliar(cartola, sistema, umbralNombre = 0.55) {
       unidad: unidades.join(", "),
       propietario: propietarios.join(", "),
       concepto: conceptos.join(", "),
+      deuda_ids: deudaIdxMatch
+        .filter(i => !["AMBIGUO", "Posible coincidencia (revisar)", "NO IDENTIFICADO"].includes(metodo))
+        .map(i => deudas[i].deuda_id),
     });
   }
 
-  const morosos = deudas.filter(d => d.estado_match === "PENDIENTE" || d.estado_match === "PARCIAL");
+  const morosos = deudas.filter(d => d.estado_match !== "PAGADO");
 
-  return { resultados, morosos };
+  return { resultados, deudas, morosos };
 }
 
 
@@ -647,27 +604,301 @@ function conciliar(cartola, sistema, umbralNombre = 0.55) {
 
 <script>
 /* =========================================================================
-   INTERFAZ
+   ESTADO Y UI
    ========================================================================= */
-let cartolaData = null;
-let sistemaData = null;
-let lastResultado = null;
-let lastMorosos = null;
-
 const $ = sel => document.querySelector(sel);
-const fmtMoney = n => "$" + Math.round(n).toLocaleString("es-CL");
+const fmtMoney = n => "$" + Math.round(n || 0).toLocaleString("es-CL");
 const fmtDate = d => {
   if (!d) return "";
   const dt = (d instanceof Date) ? d : new Date(d);
   if (isNaN(dt.getTime())) return "";
   return dt.toLocaleDateString("es-CL", { year: "numeric", month: "2-digit", day: "2-digit" });
 };
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+let cartolaData = null;
+let sistemaData = null;
+let currentTab = "identificados";
+
+const STATE = {
+  rows: [],       // filas de la cartola (pagos), editables
+  deudas: [],     // filas del sistema (deudas), editables
+  tiposPago: ["Transferencia", "Pago Asociado", "Tarjeta", "Multa", "Otro"],
+};
+
+const MONTO_TOL_UI = 1;
+
+function estadoDesdeMetodo(metodo) {
+  if (metodo === "NO IDENTIFICADO") return "Sin identificar";
+  if (metodo === "AMBIGUO" || metodo === "Posible coincidencia (revisar)") return "A revisar";
+  if (metodo === "Pago parcial") return "Parcial";
+  return "Identificado";
+}
+
+function initStateFromConciliacion(resultados, deudas) {
+  STATE.deudas = deudas.map(d => ({ ...d, plan: null }));
+  STATE.rows = resultados.map(r => ({
+    ...r,
+    row_id: uid(),
+    estado: estadoDesdeMetodo(r.metodo),
+    tipo_pago: "Transferencia",
+    deuda_ids: [...(r.deuda_ids || [])],
+  }));
+}
+
+/* ---------------- Vincular / desvincular pagos con deudas ---------------- */
+
+function pendingDebts() {
+  return STATE.deudas.filter(d => d.estado_match !== "PAGADO");
+}
+
+function unlinkRow(row) {
+  row.deuda_ids.forEach(id => {
+    const d = STATE.deudas.find(x => x.deuda_id === id);
+    if (d) { d.saldo = d.monto; d.estado_match = "PENDIENTE"; d.plan = null; }
+  });
+  row.deuda_ids = [];
+  row.unidad = ""; row.propietario = ""; row.concepto = "";
+  row.estado = "Sin identificar";
+  row.metodo = "Sin vincular";
+}
+
+function linkRow(row, deudaId) {
+  if (row.deuda_ids.length) unlinkRow(row);
+  if (!deudaId) return;
+  const d = STATE.deudas.find(x => x.deuda_id === deudaId);
+  if (!d) return;
+  const nuevoSaldo = d.saldo - row.monto;
+  if (nuevoSaldo <= MONTO_TOL_UI) {
+    d.saldo = 0; d.estado_match = "PAGADO"; row.estado = "Identificado";
+  } else {
+    d.saldo = Math.round(nuevoSaldo); d.estado_match = "PARCIAL"; row.estado = "Parcial";
+  }
+  row.deuda_ids = [deudaId];
+  row.unidad = d.unidad; row.propietario = d.propietario; row.concepto = d.concepto;
+  row.metodo = "Manual"; row.confianza = "Vinculado manualmente";
+}
+
+/* ---------------- Render principal ---------------- */
+
+function renderResults() {
+  const rows = STATE.rows;
+  const deudas = STATE.deudas;
+
+  const identificados = rows.filter(r => r.estado === "Identificado");
+  const parciales = rows.filter(r => r.estado === "Parcial");
+  const revisar = rows.filter(r => r.estado === "A revisar");
+  const noIdent = rows.filter(r => r.estado === "Sin identificar");
+  const morosos = deudas.filter(d => d.estado_match !== "PAGADO");
+
+  const montoCartola = rows.reduce((a, t) => a + t.monto, 0);
+  const montoNoIdent = noIdent.reduce((a, t) => a + t.monto, 0);
+  const montoMoroso = morosos.reduce((a, m) => a + m.saldo, 0);
+  const pct = rows.length ? identificados.length / rows.length : 0;
+
+  $("#result-sub").textContent =
+    `${rows.length} movimientos procesados · ${fmtMoney(montoCartola)} recibidos · ${(pct * 100).toFixed(1)}% conciliado`;
+
+  $("#kpi-row").innerHTML = `
+    <div class="kpi ok"><div class="n">${identificados.length}</div><div class="l">Pagos identificados</div></div>
+    <div class="kpi warn"><div class="n">${parciales.length + revisar.length}</div><div class="l">Parciales + a revisar</div></div>
+    <div class="kpi bad"><div class="n">${noIdent.length}</div><div class="l">Sin identificar · ${fmtMoney(montoNoIdent)}</div></div>
+    <div class="kpi moroso"><div class="n">${morosos.length}</div><div class="l">Deudas sin pago · ${fmtMoney(montoMoroso)}</div></div>
+    <div class="kpi neutral"><div class="n">${(pct * 100).toFixed(0)}%</div><div class="l">Conciliación</div></div>
+  `;
+
+  const tabs = [
+    { id: "identificados", label: "Identificados", data: identificados, kind: "tx" },
+    { id: "parciales", label: "Parciales", data: parciales, kind: "tx" },
+    { id: "revisar", label: "A revisar", data: revisar, kind: "tx" },
+    { id: "noident", label: "Sin identificar", data: noIdent, kind: "tx" },
+    { id: "morosos", label: "Morosos / sin pago", data: morosos, kind: "deuda" },
+  ];
+
+  $("#tabs").innerHTML = tabs.map(t => `
+    <button class="tab-btn ${t.id === currentTab ? "active" : ""}" data-tab="${t.id}">
+      ${t.label} <span class="tab-count">${t.data.length}</span>
+    </button>
+  `).join("");
+  $("#tabs").querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => { currentTab = btn.dataset.tab; renderResults(); });
+  });
+
+  const active = tabs.find(t => t.id === currentTab);
+  renderTable(active);
+}
+
+function tipoPagoOptions(selected) {
+  const opts = STATE.tiposPago.map(t => `<option value="${t}" ${t === selected ? "selected" : ""}>${t}</option>`).join("");
+  return opts + `<option value="__nuevo__">+ Agregar tipo…</option>`;
+}
+
+function estadoOptions(selected) {
+  return ["Identificado", "Parcial", "A revisar", "Sin identificar"]
+    .map(e => `<option value="${e}" ${e === selected ? "selected" : ""}>${e}</option>`).join("");
+}
+
+function vincularOptions(row) {
+  const opts = pendingDebts().map(d =>
+    `<option value="${d.deuda_id}">${d.unidad} — ${d.propietario} — ${d.concepto} (saldo ${fmtMoney(d.saldo)})</option>`
+  ).join("");
+  return `<option value="">— sin vincular —</option>` + opts;
+}
+
+function renderTable(tabInfo) {
+  const container = $("#table-container");
+  if (!tabInfo.data.length) {
+    container.innerHTML = `<div class="empty-state"><div class="big">✓</div>Sin registros en esta categoría.</div>`;
+    return;
+  }
+
+  if (tabInfo.kind === "tx") {
+    container.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Fecha</th><th>Glosa banco</th><th>Monto</th><th>Documento</th>
+          <th>Unidad / Propietario / Concepto</th><th>Tipo de pago</th><th>Estado</th>
+        </tr></thead>
+        <tbody>
+          ${tabInfo.data.map(r => `
+            <tr data-row-id="${r.row_id}">
+              <td class="nowrap">${fmtDate(r.fecha)}</td>
+              <td>${r.glosa}</td>
+              <td class="money">${fmtMoney(r.monto)}</td>
+              <td>${r.documento || ""}</td>
+              <td>${
+                r.deuda_ids.length
+                  ? `<div class="linked-info">
+                       <span class="u">${r.unidad}</span>
+                       <span class="p">${r.propietario} · ${r.concepto}</span>
+                       <button class="unlink-btn" data-action="unlink" data-row="${r.row_id}">✕ Desvincular</button>
+                     </div>`
+                  : `<select class="cell-select" data-action="link" data-row="${r.row_id}">${vincularOptions(r)}</select>`
+              }</td>
+              <td><select class="cell-select" data-action="tipo" data-row="${r.row_id}">${tipoPagoOptions(r.tipo_pago)}</select></td>
+              <td><select class="cell-select" data-action="estado" data-row="${r.row_id}">${estadoOptions(r.estado)}</select></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>`;
+  } else {
+    container.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Unidad</th><th>Propietario</th><th>Concepto</th><th>Tipo</th>
+          <th>Monto</th><th>Saldo</th><th>Vencimiento</th><th>Estado</th>
+          <th>Pago inicial</th><th>N° cuotas</th><th>Valor cuota</th>
+        </tr></thead>
+        <tbody>
+          ${tabInfo.data.map(m => {
+            const isPlan = m.estado_match === "PLAN_DE_PAGO";
+            const plan = m.plan || { pago_inicial: 0, n_cuotas: 1 };
+            const valorCuota = isPlan ? Math.max(0, Math.round((m.saldo - (plan.pago_inicial || 0)) / (plan.n_cuotas || 1))) : 0;
+            return `
+            <tr data-deuda-id="${m.deuda_id}">
+              <td class="nowrap">${m.unidad}</td>
+              <td>${m.propietario}</td>
+              <td>${m.concepto}</td>
+              <td>${m.tipo_concepto}</td>
+              <td class="money">${fmtMoney(m.monto)}</td>
+              <td>
+                <input class="cell-input money-input" type="number" min="0" step="1"
+                  data-action="saldo" data-deuda="${m.deuda_id}" value="${Math.round(m.saldo)}">
+              </td>
+              <td class="nowrap">${fmtDate(m.fecha_venc)}</td>
+              <td>
+                <select class="cell-select" data-action="estado-deuda" data-deuda="${m.deuda_id}">
+                  <option value="PENDIENTE" ${m.estado_match === "PENDIENTE" ? "selected" : ""}>Pendiente</option>
+                  <option value="PARCIAL" ${m.estado_match === "PARCIAL" ? "selected" : ""}>Parcial</option>
+                  <option value="PAGADO" ${m.estado_match === "PAGADO" ? "selected" : ""}>Pagado</option>
+                  <option value="PLAN_DE_PAGO" ${isPlan ? "selected" : ""}>Plan de pago</option>
+                </select>
+              </td>
+              <td><input class="cell-input small" type="number" min="0" step="1" ${isPlan ? "" : "disabled"}
+                    data-action="plan-inicial" data-deuda="${m.deuda_id}" value="${plan.pago_inicial || 0}"></td>
+              <td><input class="cell-input small" type="number" min="1" step="1" ${isPlan ? "" : "disabled"}
+                    data-action="plan-cuotas" data-deuda="${m.deuda_id}" value="${plan.n_cuotas || 1}"></td>
+              <td class="money">${isPlan ? fmtMoney(valorCuota) : "—"}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+  }
+}
+
+/* ---------------- Delegación de eventos sobre la tabla ---------------- */
+
+$("#table-container").addEventListener("change", (e) => {
+  const el = e.target;
+  const action = el.dataset.action;
+  if (!action) return;
+
+  if (action === "link") {
+    const row = STATE.rows.find(r => r.row_id === el.dataset.row);
+    linkRow(row, el.value);
+    renderResults();
+  } else if (action === "tipo") {
+    const row = STATE.rows.find(r => r.row_id === el.dataset.row);
+    if (el.value === "__nuevo__") {
+      const nuevo = prompt("Nombre del nuevo tipo de pago (ej: Cheque, PAT, Efectivo):");
+      if (nuevo && nuevo.trim()) {
+        STATE.tiposPago.push(nuevo.trim());
+        row.tipo_pago = nuevo.trim();
+      }
+    } else {
+      row.tipo_pago = el.value;
+    }
+    renderResults();
+  } else if (action === "estado") {
+    const row = STATE.rows.find(r => r.row_id === el.dataset.row);
+    if (el.value === "Sin identificar") {
+      unlinkRow(row);
+    } else {
+      row.estado = el.value;
+    }
+    renderResults();
+  } else if (action === "saldo") {
+    const d = STATE.deudas.find(x => x.deuda_id === el.dataset.deuda);
+    let v = Math.max(0, Math.min(d.monto, parseFloat(el.value) || 0));
+    d.saldo = v;
+    if (v <= MONTO_TOL_UI && d.estado_match !== "PLAN_DE_PAGO") d.estado_match = "PAGADO";
+    else if (d.estado_match === "PAGADO" && v > MONTO_TOL_UI) d.estado_match = "PARCIAL";
+    renderResults();
+  } else if (action === "estado-deuda") {
+    const d = STATE.deudas.find(x => x.deuda_id === el.dataset.deuda);
+    d.estado_match = el.value;
+    if (el.value === "PAGADO") { d.saldo = 0; d.plan = null; }
+    if (el.value === "PENDIENTE") { d.saldo = d.monto; d.plan = null; }
+    if (el.value === "PLAN_DE_PAGO" && !d.plan) { d.plan = { pago_inicial: 0, n_cuotas: 3 }; }
+    renderResults();
+  } else if (action === "plan-inicial") {
+    const d = STATE.deudas.find(x => x.deuda_id === el.dataset.deuda);
+    if (!d.plan) d.plan = { pago_inicial: 0, n_cuotas: 3 };
+    d.plan.pago_inicial = Math.max(0, Math.min(d.saldo, parseFloat(el.value) || 0));
+    renderResults();
+  } else if (action === "plan-cuotas") {
+    const d = STATE.deudas.find(x => x.deuda_id === el.dataset.deuda);
+    if (!d.plan) d.plan = { pago_inicial: 0, n_cuotas: 3 };
+    d.plan.n_cuotas = Math.max(1, parseInt(el.value) || 1);
+    renderResults();
+  }
+});
+
+$("#table-container").addEventListener("click", (e) => {
+  if (e.target.dataset.action === "unlink") {
+    const row = STATE.rows.find(r => r.row_id === e.target.dataset.row);
+    unlinkRow(row);
+    renderResults();
+  }
+});
+
+/* ---------------- Carga de archivos ---------------- */
 
 function showToast(msg) {
   const t = $("#toast");
   t.textContent = msg;
   t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), 2600);
+  setTimeout(() => t.classList.remove("show"), 2800);
 }
 
 function readFileAsRows(file) {
@@ -677,11 +908,8 @@ function readFileAsRows(file) {
       try {
         const wb = XLSX.read(e.target.result, { type: "array", cellDates: true });
         const sheet = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-        resolve(rows);
-      } catch (err) {
-        reject(err);
-      }
+        resolve(XLSX.utils.sheet_to_json(sheet, { defval: "" }));
+      } catch (err) { reject(err); }
     };
     reader.onerror = () => reject(new Error("No se pudo leer el archivo."));
     reader.readAsArrayBuffer(file);
@@ -691,37 +919,20 @@ function readFileAsRows(file) {
 function setupDropzone(zoneId, inputId, onLoaded) {
   const zone = $(zoneId);
   const input = $(inputId);
-  ["dragenter", "dragover"].forEach(ev => zone.addEventListener(ev, e => {
-    e.preventDefault(); zone.classList.add("drag");
-  }));
-  ["dragleave", "drop"].forEach(ev => zone.addEventListener(ev, e => {
-    e.preventDefault(); zone.classList.remove("drag");
-  }));
+  ["dragenter", "dragover"].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add("drag"); }));
+  ["dragleave", "drop"].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove("drag"); }));
   zone.addEventListener("drop", e => {
-    if (e.dataTransfer.files.length) {
-      input.files = e.dataTransfer.files;
-      input.dispatchEvent(new Event("change"));
-    }
+    if (e.dataTransfer.files.length) { input.files = e.dataTransfer.files; input.dispatchEvent(new Event("change")); }
   });
-  input.addEventListener("change", async () => {
-    if (!input.files.length) return;
-    const file = input.files[0];
-    await onLoaded(file);
-  });
+  input.addEventListener("change", async () => { if (input.files.length) await onLoaded(input.files[0]); });
 }
 
 function renderFileInfo(containerId, file, count, error) {
   const el = $(containerId);
-  if (error) {
-    el.innerHTML = `<div class="file-error">⚠ ${error}</div>`;
-    return;
-  }
+  if (error) { el.innerHTML = `<div class="file-error">⚠ ${error}</div>`; return; }
   el.innerHTML = `
     <div class="file-chip">
-      <div>
-        <div class="name">${file.name}</div>
-        <div class="meta">${count} filas detectadas</div>
-      </div>
+      <div><div class="name">${file.name}</div><div class="meta">${count} filas detectadas</div></div>
       <button title="Quitar">✕</button>
     </div>`;
   el.querySelector("button").addEventListener("click", () => {
@@ -738,204 +949,151 @@ function updateConciliarBtn() {
 
 setupDropzone("#dz-cartola", "#file-cartola", async (file) => {
   try {
-    const rows = await readFileAsRows(file);
-    cartolaData = loadCartola(rows);
+    cartolaData = loadCartola(await readFileAsRows(file));
     renderFileInfo("#info-cartola", file, cartolaData.length, null);
-  } catch (err) {
-    cartolaData = null;
-    renderFileInfo("#info-cartola", file, 0, err.message);
-  }
+  } catch (err) { cartolaData = null; renderFileInfo("#info-cartola", file, 0, err.message); }
   updateConciliarBtn();
 });
 
 setupDropzone("#dz-sistema", "#file-sistema", async (file) => {
   try {
-    const rows = await readFileAsRows(file);
-    sistemaData = loadSistema(rows);
+    sistemaData = loadSistema(await readFileAsRows(file));
     renderFileInfo("#info-sistema", file, sistemaData.length, null);
-  } catch (err) {
-    sistemaData = null;
-    renderFileInfo("#info-sistema", file, 0, err.message);
-  }
+  } catch (err) { sistemaData = null; renderFileInfo("#info-sistema", file, 0, err.message); }
   updateConciliarBtn();
 });
 
-$("#umbral").addEventListener("input", e => {
-  $("#umbral-val").textContent = parseFloat(e.target.value).toFixed(2);
-});
+$("#umbral").addEventListener("input", e => { $("#umbral-val").textContent = parseFloat(e.target.value).toFixed(2); });
 
 $("#btn-conciliar").addEventListener("click", () => {
   const umbral = parseFloat($("#umbral").value);
-  const { resultados, morosos } = conciliar(cartolaData, sistemaData, umbral);
-  lastResultado = resultados;
-  lastMorosos = morosos;
-  renderResults(resultados, morosos, cartolaData);
+  const { resultados, deudas } = conciliar(cartolaData, sistemaData, umbral);
+  initStateFromConciliacion(resultados, deudas);
+  currentTab = "identificados";
+  renderResults();
   $("#results").style.display = "block";
   $("#results").scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 $("#btn-demo").addEventListener("click", async () => {
-  const sistemaRows = DEMO_SISTEMA;
-  const cartolaRows = DEMO_CARTOLA;
-  cartolaData = loadCartola(cartolaRows);
-  sistemaData = loadSistema(sistemaRows);
+  cartolaData = loadCartola(DEMO_CARTOLA);
+  sistemaData = loadSistema(DEMO_SISTEMA);
   renderFileInfo("#info-cartola", { name: "Cartola_Ejemplo.xlsx" }, cartolaData.length, null);
   renderFileInfo("#info-sistema", { name: "Sistema_Ejemplo.xlsx" }, sistemaData.length, null);
   updateConciliarBtn();
   showToast('Datos de ejemplo cargados. Haz clic en "Conciliar pagos".');
 });
 
-/* ---------------- Render resultados ---------------- */
+/* ---------------- Exportar a Excel (refleja STATE editado) ---------------- */
 
-const METODO_PILL = {
-  "Monto exacto + nombre": "ok",
-  "Monto exacto único": "ok",
-  "Cuota Plan de Pago": "ok",
-  "Pago combinado": "ok",
-  "Pago parcial": "warn",
-  "Posible coincidencia (revisar)": "warn",
-  "AMBIGUO": "warn",
-  "NO IDENTIFICADO": "bad",
-};
-
-function pill(metodo) {
-  const cls = METODO_PILL[metodo] || "warn";
-  return `<span class="pill ${cls}">${metodo}</span>`;
-}
-
-let currentTab = "identificados";
-
-function renderResults(resultados, morosos, cartola) {
-  const identificados = resultados.filter(r => !["NO IDENTIFICADO", "AMBIGUO", "Posible coincidencia (revisar)"].includes(r.metodo));
-  const parciales = resultados.filter(r => r.metodo === "Pago parcial");
-  const revisar = resultados.filter(r => ["AMBIGUO", "Posible coincidencia (revisar)"].includes(r.metodo));
-  const noIdent = resultados.filter(r => r.metodo === "NO IDENTIFICADO");
-
-  const montoCartola = cartola.reduce((a, t) => a + t.monto, 0);
-  const montoNoIdent = noIdent.reduce((a, t) => a + t.monto, 0);
-  const montoMoroso = morosos.reduce((a, m) => a + m.saldo, 0);
-  const pct = resultados.length ? identificados.length / resultados.length : 0;
-
-  $("#result-sub").textContent =
-    `${cartola.length} movimientos procesados · ${fmtMoney(montoCartola)} recibidos · ${(pct * 100).toFixed(1)}% conciliado automáticamente`;
-
-  $("#kpi-row").innerHTML = `
-    <div class="kpi ok"><div class="n">${identificados.length}</div><div class="l">Pagos identificados</div></div>
-    <div class="kpi warn"><div class="n">${parciales.length + revisar.length}</div><div class="l">Parciales + a revisar</div></div>
-    <div class="kpi bad"><div class="n">${noIdent.length}</div><div class="l">Sin identificar · ${fmtMoney(montoNoIdent)}</div></div>
-    <div class="kpi moroso"><div class="n">${morosos.length}</div><div class="l">Deudas sin pago · ${fmtMoney(montoMoroso)}</div></div>
-    <div class="kpi neutral"><div class="n">${(pct * 100).toFixed(0)}%</div><div class="l">Conciliación automática</div></div>
-  `;
-
-  const tabs = [
-    { id: "identificados", label: "Identificados", data: identificados, kind: "tx" },
-    { id: "parciales", label: "Parciales", data: parciales, kind: "tx" },
-    { id: "revisar", label: "A revisar", data: revisar, kind: "tx" },
-    { id: "noident", label: "Sin identificar", data: noIdent, kind: "tx" },
-    { id: "morosos", label: "Morosos / sin pago", data: morosos, kind: "deuda" },
-  ];
-
-  $("#tabs").innerHTML = tabs.map(t => `
-    <button class="tab-btn ${t.id === currentTab ? "active" : ""}" data-tab="${t.id}">
-      ${t.label} <span class="tab-count">${t.data.length}</span>
-    </button>
-  `).join("");
-
-  $("#tabs").querySelectorAll(".tab-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      currentTab = btn.dataset.tab;
-      renderResults(resultados, morosos, cartola);
-    });
-  });
-
-  const active = tabs.find(t => t.id === currentTab);
-  renderTable(active);
-}
-
-function renderTable(tabInfo) {
-  const container = $("#table-container");
-  if (!tabInfo.data.length) {
-    container.innerHTML = `<div class="empty-state"><div class="big">✓</div>Sin registros en esta categoría.</div>`;
-    return;
-  }
-
-  if (tabInfo.kind === "tx") {
-    container.innerHTML = `
-      <table>
-        <thead><tr>
-          <th>Fecha</th><th>Glosa banco</th><th>Monto</th><th>Documento</th>
-          <th>Unidad</th><th>Propietario</th><th>Concepto</th><th>Método</th>
-        </tr></thead>
-        <tbody>
-          ${tabInfo.data.map(r => `
-            <tr>
-              <td>${fmtDate(r.fecha)}</td>
-              <td>${r.glosa}</td>
-              <td class="money">${fmtMoney(r.monto)}</td>
-              <td>${r.documento || ""}</td>
-              <td>${r.unidad || "—"}</td>
-              <td>${r.propietario || "—"}</td>
-              <td>${r.concepto || "—"}</td>
-              <td>${pill(r.metodo)}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>`;
-  } else {
-    container.innerHTML = `
-      <table>
-        <thead><tr>
-          <th>Unidad</th><th>Propietario</th><th>Concepto</th><th>Tipo</th>
-          <th>Monto original</th><th>Saldo pendiente</th><th>Vencimiento</th><th>Estado</th>
-        </tr></thead>
-        <tbody>
-          ${tabInfo.data.map(m => `
-            <tr>
-              <td>${m.unidad}</td>
-              <td>${m.propietario}</td>
-              <td>${m.concepto}</td>
-              <td>${m.tipo_concepto}</td>
-              <td class="money">${fmtMoney(m.monto)}</td>
-              <td class="money">${fmtMoney(m.saldo)}</td>
-              <td>${fmtDate(m.fecha_venc)}</td>
-              <td><span class="pill moroso">${m.estado_match}</span></td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>`;
-  }
-}
-
-/* ---------------- Exportar a Excel ---------------- */
-
-$("#btn-export").addEventListener("click", () => {
-  if (!lastResultado) return;
-  const wb = XLSX.utils.book_new();
-
-  const identificados = lastResultado.filter(r => !["NO IDENTIFICADO", "AMBIGUO", "Posible coincidencia (revisar)"].includes(r.metodo));
-  const parciales = lastResultado.filter(r => r.metodo === "Pago parcial");
-  const revisar = lastResultado.filter(r => ["AMBIGUO", "Posible coincidencia (revisar)"].includes(r.metodo));
-  const noIdent = lastResultado.filter(r => r.metodo === "NO IDENTIFICADO");
+function buildExportSheets() {
+  const rows = STATE.rows;
+  const identificados = rows.filter(r => r.estado === "Identificado");
+  const parciales = rows.filter(r => r.estado === "Parcial");
+  const revisar = rows.filter(r => r.estado === "A revisar");
+  const noIdent = rows.filter(r => r.estado === "Sin identificar");
+  const morosos = STATE.deudas.filter(d => d.estado_match !== "PAGADO");
 
   const txCols = r => ({
     Fecha: fmtDate(r.fecha), Glosa: r.glosa, Monto: r.monto, Documento: r.documento,
-    Unidad: r.unidad, Propietario: r.propietario, Concepto: r.concepto, Metodo: r.metodo, Confianza: r.confianza,
+    Unidad: r.unidad, Propietario: r.propietario, Concepto: r.concepto,
+    "Tipo de Pago": r.tipo_pago, Estado: r.estado, Metodo: r.metodo,
   });
-
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(identificados.map(txCols)), "Pagos_Identificados");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(parciales.map(txCols)), "Pagos_Parciales");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(revisar.map(txCols)), "A_Revisar");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(noIdent.map(r => ({ Fecha: fmtDate(r.fecha), Glosa: r.glosa, Monto: r.monto, Documento: r.documento }))), "Pagos_Sin_Identificar");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(lastMorosos.map(m => ({
+  const deudaCols = m => ({
     Unidad: m.unidad, Propietario: m.propietario, Concepto: m.concepto, Tipo: m.tipo_concepto,
     Monto: m.monto, Saldo: m.saldo, Vencimiento: fmtDate(m.fecha_venc), Estado: m.estado_match,
-  }))), "Morosos_Sin_Pago");
+    "Pago Inicial": m.plan ? m.plan.pago_inicial : "", "N Cuotas": m.plan ? m.plan.n_cuotas : "",
+    "Valor Cuota": m.plan ? Math.round((m.saldo - m.plan.pago_inicial) / m.plan.n_cuotas) : "",
+  });
 
-  XLSX.writeFile(wb, `Conciliacion_JDVM_${new Date().toISOString().slice(0,10)}.xlsx`);
+  return { identificados: identificados.map(txCols), parciales: parciales.map(txCols),
+    revisar: revisar.map(txCols), noIdent: noIdent.map(r => ({ Fecha: fmtDate(r.fecha), Glosa: r.glosa, Monto: r.monto, Documento: r.documento })),
+    morosos: morosos.map(deudaCols) };
+}
+
+function descargarExcel() {
+  const s = buildExportSheets();
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.identificados), "Pagos_Identificados");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.parciales), "Pagos_Parciales");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.revisar), "A_Revisar");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.noIdent), "Pagos_Sin_Identificar");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.morosos), "Morosos_Sin_Pago");
+  const filename = `Conciliacion_JDVM_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  return filename;
+}
+
+$("#btn-export").addEventListener("click", () => {
+  if (!STATE.rows.length) return;
+  descargarExcel();
   showToast("Reporte descargado.");
 });
 
-/* ---------------- Datos de ejemplo (mismo caso validado) ---------------- */
+/* ---------------- Imprimir ---------------- */
+
+function buildPrintArea() {
+  const s = buildExportSheets();
+  const fecha = new Date().toLocaleDateString("es-CL");
+  const rows = STATE.rows;
+  const montoCartola = rows.reduce((a, t) => a + t.monto, 0);
+  const montoMoroso = STATE.deudas.filter(d => d.estado_match !== "PAGADO").reduce((a, m) => a + m.saldo, 0);
+  const pct = rows.length ? (s.identificados.length / rows.length) * 100 : 0;
+
+  const txTable = (title, arr, extraCols) => `
+    <h2>${title} (${arr.length})</h2>
+    ${arr.length ? `<table><thead><tr><th>Fecha</th><th>Glosa</th><th>Monto</th>${extraCols ? "<th>Unidad</th><th>Propietario</th><th>Tipo pago</th>" : ""}</tr></thead>
+    <tbody>${arr.map(r => `<tr><td>${r.Fecha}</td><td>${r.Glosa}</td><td>${fmtMoney(r.Monto)}</td>${extraCols ? `<td>${r.Unidad || ""}</td><td>${r.Propietario || ""}</td><td>${r["Tipo de Pago"] || ""}</td>` : ""}</tr>`).join("")}</tbody></table>` : "<p style='font-size:11px;color:#777'>Sin registros.</p>"}`;
+
+  $("#print-area").innerHTML = `
+    <h1>Conciliación de Pagos — JDVM</h1>
+    <p class="p-sub">Generado ${fecha} · ${rows.length} movimientos procesados · ${fmtMoney(montoCartola)} recibidos</p>
+    <div class="p-kpis">
+      <div class="p-kpi"><b>${s.identificados.length}</b>Identificados</div>
+      <div class="p-kpi"><b>${s.parciales.length}</b>Parciales</div>
+      <div class="p-kpi"><b>${s.revisar.length}</b>A revisar</div>
+      <div class="p-kpi"><b>${s.noIdent.length}</b>Sin identificar</div>
+      <div class="p-kpi"><b>${s.morosos.length}</b>Morosos (${fmtMoney(montoMoroso)})</div>
+      <div class="p-kpi"><b>${pct.toFixed(0)}%</b>Conciliación</div>
+    </div>
+    ${txTable("Pagos Identificados", s.identificados, true)}
+    ${txTable("Pagos Parciales", s.parciales, true)}
+    ${txTable("A Revisar", s.revisar, true)}
+    ${txTable("Sin Identificar", s.noIdent, false)}
+    <h2>Morosos / Sin pago (${s.morosos.length})</h2>
+    ${s.morosos.length ? `<table><thead><tr><th>Unidad</th><th>Propietario</th><th>Concepto</th><th>Saldo</th><th>Estado</th></tr></thead>
+    <tbody>${s.morosos.map(m => `<tr><td>${m.Unidad}</td><td>${m.Propietario}</td><td>${m.Concepto}</td><td>${fmtMoney(m.Saldo)}</td><td>${m.Estado}</td></tr>`).join("")}</tbody></table>` : "<p style='font-size:11px;color:#777'>Sin registros.</p>"}
+  `;
+}
+
+$("#btn-imprimir").addEventListener("click", () => {
+  if (!STATE.rows.length) return;
+  buildPrintArea();
+  window.print();
+});
+
+/* ---------------- Enviar por mail ---------------- */
+
+$("#btn-mail").addEventListener("click", () => {
+  if (!STATE.rows.length) return;
+  const filename = descargarExcel();
+  const s = buildExportSheets();
+  const montoMoroso = STATE.deudas.filter(d => d.estado_match !== "PAGADO").reduce((a, m) => a + m.saldo, 0);
+  const subject = `Conciliación de pagos JDVM - ${new Date().toLocaleDateString("es-CL")}`;
+  const body =
+    `Resumen de la conciliación:\n\n` +
+    `- Identificados: ${s.identificados.length}\n` +
+    `- Parciales: ${s.parciales.length}\n` +
+    `- A revisar: ${s.revisar.length}\n` +
+    `- Sin identificar: ${s.noIdent.length}\n` +
+    `- Morosos / sin pago: ${s.morosos.length} (${fmtMoney(montoMoroso)})\n\n` +
+    `Se acaba de descargar el archivo "${filename}" — adjúntalo manualmente a este correo antes de enviarlo ` +
+    `(los navegadores no permiten adjuntar archivos automáticamente por seguridad).`;
+  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  showToast("Excel descargado. Se abrió tu app de correo — adjunta el archivo antes de enviar.");
+});
+
+/* ---------------- Datos de ejemplo ---------------- */
 const DEMO_SISTEMA = [
   { Unidad: "Depto 101", Propietario: "Juan Pérez Soto", Concepto: "Gasto Común Julio", "Monto Adeudado": 85000, "Fecha Vencimiento": "2026-07-05" },
   { Unidad: "Depto 102", Propietario: "María González", Concepto: "Gasto Común Julio", "Monto Adeudado": 92000, "Fecha Vencimiento": "2026-07-05" },
