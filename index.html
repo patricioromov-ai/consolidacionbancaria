@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conciliación · Cartola vs Sistema Edificio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#0F2A43;
+    --ink-soft:#233A52;
+    --slate:#5B6B7F;
+    --slate-light:#8A97A8;
+    --bg:#F3F5F8;
+    --surface:#FFFFFF;
+    --border:#E3E7ED;
+    --accent:#146C5B;
+    --accent-soft:#E4F1EC;
+    --ok:#1B8A5A;
+    --ok-bg:#E7F5EC;
+    --warn:#B7791F;
+    --warn-bg:#FCF3DE;
+    --bad:#C53030;
+    --bad-bg:#FCEAEA;
+    --moroso:#6B46C1;
+    --moroso-bg:#F1EBFB;
+    --radius:10px;
+    --shadow: 0 1px 2px rgba(15,42,67,.06), 0 4px 16px rgba(15,42,67,.04);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;}
+  .mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px;}
+
+  header.top{
+    background:linear-gradient(135deg,var(--ink) 0%,#173C5C 100%);
+    color:#fff;
+    padding:36px 0 34px;
+    margin-bottom:-30px;
+  }
+  header.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:14px;}
+  .brand-mark{
+    width:42px;height:42px;border-radius:10px;
+    background:var(--accent);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:#fff;
+    flex-shrink:0;
+  }
+  .brand h1{font-size:19px;margin:0;font-weight:600;letter-spacing:.2px;}
+  .brand p{margin:2px 0 0;font-size:12.5px;color:#B9C7D6;}
+  .top-badge{
+    font-size:11.5px;color:#CFE0D9;background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.16);
+    padding:6px 12px;border-radius:100px;
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+
+  /* ---------- Upload section ---------- */
+  .upload-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:18px;
+    margin-top:34px;position:relative;z-index:2;
+  }
+  @media(max-width:760px){.upload-grid{grid-template-columns:1fr;}}
+
+  .upload-card{padding:22px;}
+  .upload-card .step{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:10px;
+  }
+  .upload-card h3{margin:0 0 4px;font-size:16px;}
+  .upload-card .hint{color:var(--slate);font-size:13px;margin:0 0 16px;}
+
+  .dropzone{
+    border:1.5px dashed #C7D0DB;
+    border-radius:8px;
+    padding:26px 16px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+    background:#FBFCFD;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--accent);
+    background:var(--accent-soft);
+  }
+  .dropzone svg{opacity:.55;margin-bottom:8px;}
+  .dropzone .dz-title{font-size:13.5px;font-weight:600;color:var(--ink-soft);}
+  .dropzone .dz-sub{font-size:12px;color:var(--slate-light);margin-top:3px;}
+  .dropzone input{display:none;}
+
+  .file-chip{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--ok-bg);border:1px solid #BFE3CD;
+    border-radius:8px;padding:10px 12px;margin-top:10px;font-size:13px;
+  }
+  .file-chip .name{font-weight:600;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;}
+  .file-chip .meta{color:var(--slate);font-size:11.5px;}
+  .file-chip button{
+    border:none;background:none;color:var(--bad);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;
+  }
+  .file-error{
+    background:var(--bad-bg);border:1px solid #F0BCBC;color:var(--bad);
+    border-radius:8px;padding:10px 12px;margin-top:10px;font-size:12.5px;
+  }
+
+  /* ---------- Controls ---------- */
+  .controls-bar{
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;
+    margin-top:20px;padding:16px 20px;
+  }
+  .slider-group{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--slate);}
+  .slider-group input[type=range]{width:150px;accent-color:var(--accent);}
+  .slider-group .val{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--ink-soft);min-width:34px;}
+
+  .btn{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:14px;
+    border:none;border-radius:8px;padding:12px 22px;cursor:pointer;
+    transition:transform .1s, box-shadow .15s, opacity .15s;
+  }
+  .btn:active{transform:scale(.98);}
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 2px 10px rgba(20,108,91,.28);}
+  .btn-primary:hover{box-shadow:0 4px 16px rgba(20,108,91,.36);}
+  .btn-primary:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;}
+  .btn-ghost{background:#fff;color:var(--ink-soft);border:1px solid var(--border);}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* ---------- Results ---------- */
+  #results{display:none;margin-top:8px;}
+  .kpi-row{
+    display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:26px 0 22px;
+  }
+  @media(max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr);}}
+  .kpi{
+    padding:18px 16px;border-radius:10px;border:1px solid var(--border);background:#fff;
+  }
+  .kpi .n{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;line-height:1;}
+  .kpi .l{font-size:11.5px;color:var(--slate);margin-top:8px;line-height:1.35;}
+  .kpi.ok .n{color:var(--ok);} .kpi.warn .n{color:var(--warn);}
+  .kpi.bad .n{color:var(--bad);} .kpi.moroso .n{color:var(--moroso);}
+  .kpi.neutral .n{color:var(--ink);}
+
+  .tabs{display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:0;overflow-x:auto;}
+  .tab-btn{
+    font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--slate);
+    background:none;border:none;padding:12px 16px;cursor:pointer;white-space:nowrap;
+    border-bottom:2.5px solid transparent;display:flex;align-items:center;gap:7px;
+  }
+  .tab-btn.active{color:var(--ink);border-bottom-color:var(--accent);}
+  .tab-count{
+    background:#EEF1F5;color:var(--slate);font-size:11px;font-weight:700;
+    padding:1px 7px;border-radius:100px;
+  }
+  .tab-btn.active .tab-count{background:var(--accent-soft);color:var(--accent);}
+
+  .table-card{border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden;}
+  .table-scroll{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{
+    text-align:left;background:#F8F9FB;color:var(--slate);
+    font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;
+    padding:11px 14px;border-bottom:1px solid var(--border);white-space:nowrap;
+  }
+  tbody td{padding:11px 14px;border-bottom:1px solid #F0F2F5;color:var(--ink-soft);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#FAFBFC;}
+  td.money{font-family:'IBM Plex Mono',monospace;font-weight:600;text-align:right;white-space:nowrap;}
+
+  .pill{
+    display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:100px;white-space:nowrap;
+  }
+  .pill.ok{background:var(--ok-bg);color:var(--ok);}
+  .pill.warn{background:var(--warn-bg);color:var(--warn);}
+  .pill.bad{background:var(--bad-bg);color:var(--bad);}
+  .pill.moroso{background:var(--moroso-bg);color:var(--moroso);}
+
+  .empty-state{padding:50px 20px;text-align:center;color:var(--slate);}
+  .empty-state .big{font-size:32px;margin-bottom:8px;}
+
+  .section-head{display:flex;align-items:center;justify-content:space-between;margin:38px 0 4px;flex-wrap:wrap;gap:10px;}
+  .section-head h2{font-size:18px;margin:0;}
+  .section-head p{margin:2px 0 0;font-size:12.5px;color:var(--slate);}
+
+  footer{margin-top:60px;padding-top:22px;border-top:1px solid var(--border);color:var(--slate-light);font-size:12px;text-align:center;}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;
+    box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:50;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div class="brand-mark">JV</div>
+      <div>
+        <h1>Conciliación de Pagos — JDVM</h1>
+        <p>Cartola bancaria vs Sistema de Edificio · 100% en tu navegador, sin subir datos a ningún servidor</p>
+      </div>
+    </div>
+    <div class="top-badge">Motor de cruce v1.0</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="upload-grid">
+    <div class="card upload-card">
+      <div class="step">Paso 1</div>
+      <h3>Cartola del banco</h3>
+      <p class="hint">Sube el archivo tal cual lo exporta tu banco (.xlsx o .csv). Las columnas se detectan solas.</p>
+      <label class="dropzone" id="dz-cartola">
+        <input type="file" id="file-cartola" accept=".xlsx,.xls,.csv">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#5B6B7F" stroke-width="1.6"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <div class="dz-title">Arrastra el archivo aquí o haz clic</div>
+        <div class="dz-sub">XLSX, XLS o CSV</div>
+      </label>
+      <div id="info-cartola"></div>
+    </div>
+
+    <div class="card upload-card">
+      <div class="step">Paso 2</div>
+      <h3>Sistema de Edificio</h3>
+      <p class="hint">Sube el export de cobros/gastos comunes, multas, planes de pago y uso de espacios comunes.</p>
+      <label class="dropzone" id="dz-sistema">
+        <input type="file" id="file-sistema" accept=".xlsx,.xls,.csv">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#5B6B7F" stroke-width="1.6"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <div class="dz-title">Arrastra el archivo aquí o haz clic</div>
+        <div class="dz-sub">XLSX, XLS o CSV</div>
+      </label>
+      <div id="info-sistema"></div>
+    </div>
+  </div>
+
+  <div class="card controls-bar">
+    <div class="slider-group">
+      <span>Sensibilidad de nombre</span>
+      <input type="range" id="umbral" min="0.2" max="0.9" step="0.05" value="0.55">
+      <span class="val mono" id="umbral-val">0.55</span>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" id="btn-demo">Probar con datos de ejemplo</button>
+      <button class="btn btn-primary" id="btn-conciliar" disabled>Conciliar pagos</button>
+    </div>
+  </div>
+
+  <div id="results">
+    <div class="section-head">
+      <div>
+        <h2>Resultado de la conciliación</h2>
+        <p id="result-sub">—</p>
+      </div>
+      <button class="btn btn-ghost" id="btn-export">⬇ Descargar reporte Excel</button>
+    </div>
+
+    <div class="kpi-row" id="kpi-row"></div>
+
+    <div class="tabs" id="tabs"></div>
+    <div class="card table-card">
+      <div class="table-scroll" id="table-container"></div>
+    </div>
+  </div>
+
+  <footer>
+    Herramienta interna JDVM · el cruce corre completo en tu navegador — ningún archivo se envía a un servidor externo.
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   MOTOR DE CONCILIACIÓN (idéntico al validado en Python/Node)
+   ========================================================================= */
+// ============================================================================
+// Motor de conciliación Cartola Bancaria vs Sistema de Edificio
+// Puerto en JS de la misma lógica multi-pasada validada en Python.
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// Normalización de texto
+// ---------------------------------------------------------------------------
+function stripAccents(text) {
+  if (typeof text !== "string") return "";
+  return text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeText(text) {
+  if (text === null || text === undefined) return "";
+  let t = stripAccents(String(text)).toUpperCase();
+  t = t.replace(/[^A-Z0-9 ]/g, " ");
+  t = t.replace(/\s+/g, " ").trim();
+  return t;
+}
+
+const GLOSA_STOPWORDS = new Set([
+  "TRANSF", "TRANSFERENCIA", "DE", "DEL", "RECIBIDA", "DEPOSITO", "EFECTIVO",
+  "SUC", "SUCURSAL", "PAGO", "ABONO", "SPA", "LTDA", "EIRL", "SA",
+]);
+
+function cleanGlosa(glosa) {
+  const tokens = normalizeText(glosa).split(" ").filter(t => t && !GLOSA_STOPWORDS.has(t));
+  return tokens.join(" ");
+}
+
+// Coeficiente de Dice sobre bigramas de caracteres (aproxima SequenceMatcher.ratio)
+function diceCoefficient(a, b) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const bigrams = s => {
+    const arr = [];
+    for (let i = 0; i < s.length - 1; i++) arr.push(s.substring(i, i + 2));
+    return arr;
+  };
+  const bA = bigrams(a);
+  const bB = bigrams(b);
+  if (bA.length === 0 || bB.length === 0) return 0;
+  const counts = {};
+  for (const bg of bA) counts[bg] = (counts[bg] || 0) + 1;
+  let matches = 0;
+  for (const bg of bB) {
+    if (counts[bg] > 0) {
+      matches++;
+      counts[bg]--;
+    }
+  }
+  return (2 * matches) / (bA.length + bB.length);
+}
+
+function nameSimilarity(a, b) {
+  const aClean = cleanGlosa(a);
+  const bClean = cleanGlosa(b);
+  if (!aClean || !bClean) return 0;
+  const ratio = diceCoefficient(aClean, bClean);
+  const tokensA = new Set(aClean.split(" "));
+  const tokensB = new Set(bClean.split(" "));
+  let overlap = 0;
+  if (tokensB.size > 0) {
+    let inter = 0;
+    tokensB.forEach(t => { if (tokensA.has(t)) inter++; });
+    overlap = inter / tokensB.size;
+  }
+  return Math.max(ratio, overlap);
+}
+
+// ---------------------------------------------------------------------------
+// Detección flexible de columnas
+// ---------------------------------------------------------------------------
+function detectColumn(columns, keywords, exclude) {
+  exclude = exclude || [];
+  const normCols = columns.map(c => ({ orig: c, norm: normalizeText(c) }));
+  for (const kw of keywords) {
+    const kwN = normalizeText(kw);
+    for (const { orig, norm } of normCols) {
+      const excluded = exclude.some(x => norm.includes(normalizeText(x)));
+      if (norm.includes(kwN) && !excluded) return orig;
+    }
+  }
+  return null;
+}
+
+function toNumber(v) {
+  if (typeof v === "number") return v;
+  if (v === null || v === undefined || v === "") return NaN;
+  const cleaned = String(v).replace(/[^0-9,.-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".");
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? NaN : n;
+}
+
+function parseDate(v) {
+  if (v instanceof Date) return v;
+  if (typeof v === "number") {
+    // fecha serial de Excel
+    return new Date(Math.round((v - 25569) * 86400 * 1000));
+  }
+  if (!v) return null;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// ---------------------------------------------------------------------------
+// Carga de tablas (rows = array de objetos {header: valor}, tal como entrega
+// XLSX.utils.sheet_to_json en el navegador)
+// ---------------------------------------------------------------------------
+function loadCartola(rows) {
+  if (!rows.length) throw new Error("La cartola está vacía.");
+  const cols = Object.keys(rows[0]);
+  const colFecha = detectColumn(cols, ["fecha"]);
+  const colMonto = detectColumn(cols, ["monto abono", "abono", "haber", "monto", "valor"], ["cargo"]);
+  const colGlosa = detectColumn(cols, ["glosa", "descripcion", "detalle", "concepto"]);
+  const colDoc = detectColumn(cols, ["documento", "referencia", "n doc", "folio", "comprobante"]);
+
+  const missing = [];
+  if (!colFecha) missing.push("Fecha");
+  if (!colMonto) missing.push("Monto");
+  if (!colGlosa) missing.push("Glosa/Descripción");
+  if (missing.length) {
+    throw new Error(`No pude detectar columnas en la cartola: ${missing.join(", ")}. Columnas encontradas: ${cols.join(", ")}`);
+  }
+
+  const out = [];
+  rows.forEach((r, idx) => {
+    const monto = toNumber(r[colMonto]);
+    if (!monto || monto <= 0) return;
+    out.push({
+      tx_id: `TX${String(idx + 1).padStart(4, "0")}`,
+      fecha: parseDate(r[colFecha]),
+      glosa: String(r[colGlosa] ?? ""),
+      monto,
+      documento: colDoc ? String(r[colDoc] ?? "") : "",
+    });
+  });
+  return out;
+}
+
+function clasificarConcepto(concepto) {
+  const c = normalizeText(concepto);
+  if (c.includes("MULTA")) return "Multa";
+  if (c.includes("PLAN") && c.includes("PAGO")) return "Plan de Pago";
+  if (c.includes("ESPACIO") || c.includes("QUINCHO") || c.includes("SALON") || c.includes("SALA")) return "Uso Espacio Común";
+  if (c.includes("RESERVA")) return "Fondo de Reserva";
+  return "Gasto Común";
+}
+
+function loadSistema(rows) {
+  if (!rows.length) throw new Error("El archivo del sistema está vacío.");
+  const cols = Object.keys(rows[0]);
+  const colUnidad = detectColumn(cols, ["unidad", "depto", "departamento"]);
+  const colProp = detectColumn(cols, ["propietario", "residente", "nombre"]);
+  const colConcepto = detectColumn(cols, ["concepto", "tipo de cobro", "detalle", "glosa"]);
+  const colMonto = detectColumn(cols, ["monto adeudado", "adeudado", "deuda", "monto", "valor"]);
+  const colFVenc = detectColumn(cols, ["vencimiento", "fecha"]);
+  const colEstado = detectColumn(cols, ["estado"]);
+
+  const missing = [];
+  if (!colUnidad) missing.push("Unidad");
+  if (!colProp) missing.push("Propietario");
+  if (!colMonto) missing.push("Monto");
+  if (missing.length) {
+    throw new Error(`No pude detectar columnas en el sistema: ${missing.join(", ")}. Columnas encontradas: ${cols.join(", ")}`);
+  }
+
+  const out = [];
+  rows.forEach((r, idx) => {
+    const monto = toNumber(r[colMonto]);
+    if (!monto || monto <= 0) return;
+    const concepto = colConcepto ? String(r[colConcepto] ?? "Gasto Común") : "Gasto Común";
+    out.push({
+      deuda_id: `DEU${String(idx + 1).padStart(4, "0")}`,
+      unidad: String(r[colUnidad] ?? ""),
+      propietario: String(r[colProp] ?? ""),
+      concepto,
+      tipo_concepto: clasificarConcepto(concepto),
+      monto,
+      saldo: monto,
+      fecha_venc: colFVenc ? parseDate(r[colFVenc]) : null,
+      estado_sistema: colEstado ? String(r[colEstado] ?? "") : "",
+      estado_match: "PENDIENTE",
+    });
+  });
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Combinaciones (equivalente a itertools.combinations)
+// ---------------------------------------------------------------------------
+function combinations(arr, r) {
+  const result = [];
+  const combo = [];
+  function backtrack(start) {
+    if (combo.length === r) {
+      result.push([...combo]);
+      return;
+    }
+    for (let i = start; i < arr.length; i++) {
+      combo.push(arr[i]);
+      backtrack(i + 1);
+      combo.pop();
+    }
+  }
+  backtrack(0);
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Motor de conciliación multi-pasada
+// ---------------------------------------------------------------------------
+const MONTO_TOL = 1;
+
+function conciliar(cartola, sistema, umbralNombre = 0.55) {
+  const deudas = sistema.map(d => ({ ...d, tx_asociadas: [] }));
+  let pendientes = new Set(deudas.map((_, i) => i));
+
+  function deudasPendientesDe(propietarioTx, umbral) {
+    const candidatos = [];
+    pendientes.forEach(i => {
+      const score = nameSimilarity(propietarioTx, deudas[i].propietario);
+      if (score >= umbral) candidatos.push([i, score]);
+    });
+    candidatos.sort((a, b) => b[1] - a[1]);
+    return candidatos;
+  }
+
+  const resultados = [];
+
+  for (const tx of cartola) {
+    const montoTx = tx.monto;
+    const glosa = tx.glosa;
+    let metodo = null;
+    let confianza = "";
+    let deudaIdxMatch = [];
+
+    const exactosMonto = [...pendientes].filter(i => Math.abs(deudas[i].saldo - montoTx) <= MONTO_TOL);
+    const candidatosNombre = deudasPendientesDe(glosa, umbralNombre);
+    const candidatosNombreSet = new Set(candidatosNombre.map(([i]) => i));
+
+    // PASADA A: monto exacto + nombre
+    const matchA = exactosMonto.filter(i => candidatosNombreSet.has(i));
+    if (matchA.length === 1) {
+      metodo = "Monto exacto + nombre";
+      deudaIdxMatch = [matchA[0]];
+      confianza = "Alta";
+    } else if (exactosMonto.length === 1) {
+      // PASADA B: monto exacto único
+      metodo = "Monto exacto único";
+      deudaIdxMatch = [exactosMonto[0]];
+      confianza = "Media-Alta";
+    } else if (exactosMonto.length > 1) {
+      // PASADA B2: ambiguo
+      metodo = "AMBIGUO";
+      deudaIdxMatch = exactosMonto;
+      confianza = "Revisar";
+    }
+
+    // PASADA C: pago combinado
+    if (metodo === null && candidatosNombre.length) {
+      const mejorPropIdx = candidatosNombre.filter(([, s]) => s >= umbralNombre).map(([i]) => i);
+      outer:
+      for (const r of [2, 3]) {
+        for (const combo of combinations(mejorPropIdx, r)) {
+          const suma = combo.reduce((acc, i) => acc + deudas[i].saldo, 0);
+          if (Math.abs(suma - montoTx) <= MONTO_TOL) {
+            metodo = "Pago combinado";
+            deudaIdxMatch = combo;
+            confianza = "Alta";
+            break outer;
+          }
+        }
+      }
+    }
+
+    // PASADA D: cuota plan de pago (re-etiqueta A/B si el concepto corresponde)
+    if ((metodo === "Monto exacto + nombre" || metodo === "Monto exacto único") && deudaIdxMatch.length) {
+      if (deudas[deudaIdxMatch[0]].tipo_concepto === "Plan de Pago") {
+        metodo = "Cuota Plan de Pago";
+      }
+    }
+
+    // PASADA E: pago parcial
+    if (metodo === null && candidatosNombre.length) {
+      const [i, score] = candidatosNombre[0];
+      const saldo = deudas[i].saldo;
+      if (montoTx > 0 && montoTx < saldo - MONTO_TOL) {
+        metodo = "Pago parcial";
+        deudaIdxMatch = [i];
+        confianza = `Nombre similar ${(score * 100).toFixed(0)}%`;
+      }
+    }
+
+    // PASADA F: nombre similar, monto no calza
+    if (metodo === null && candidatosNombre.length) {
+      const [i, score] = candidatosNombre[0];
+      metodo = "Posible coincidencia (revisar)";
+      deudaIdxMatch = [i];
+      confianza = `Nombre similar ${(score * 100).toFixed(0)}%`;
+    }
+
+    // PASADA G: nada
+    if (metodo === null) {
+      metodo = "NO IDENTIFICADO";
+      confianza = "";
+    }
+
+    const unidades = [];
+    const propietarios = [];
+    const conceptos = [];
+    for (const i of deudaIdxMatch) {
+      const d = deudas[i];
+      if (!unidades.includes(d.unidad)) unidades.push(d.unidad);
+      if (!propietarios.includes(d.propietario)) propietarios.push(d.propietario);
+      conceptos.push(d.concepto);
+
+      if (metodo === "Pago parcial") {
+        deudas[i].saldo = Math.round(deudas[i].saldo - montoTx);
+        deudas[i].estado_match = "PARCIAL";
+      } else if (!["AMBIGUO", "Posible coincidencia (revisar)", "NO IDENTIFICADO"].includes(metodo)) {
+        deudas[i].saldo = 0;
+        deudas[i].estado_match = "PAGADO";
+        deudas[i].tx_asociadas.push(tx.tx_id);
+        pendientes.delete(i);
+      }
+    }
+
+    resultados.push({
+      tx_id: tx.tx_id,
+      fecha: tx.fecha,
+      glosa,
+      monto: montoTx,
+      documento: tx.documento,
+      metodo,
+      confianza,
+      unidad: unidades.join(", "),
+      propietario: propietarios.join(", "),
+      concepto: conceptos.join(", "),
+    });
+  }
+
+  const morosos = deudas.filter(d => d.estado_match === "PENDIENTE" || d.estado_match === "PARCIAL");
+
+  return { resultados, morosos };
+}
+
+
+
+</script>
+
+<script>
+/* =========================================================================
+   INTERFAZ
+   ========================================================================= */
+let cartolaData = null;
+let sistemaData = null;
+let lastResultado = null;
+let lastMorosos = null;
+
+const $ = sel => document.querySelector(sel);
+const fmtMoney = n => "$" + Math.round(n).toLocaleString("es-CL");
+const fmtDate = d => {
+  if (!d) return "";
+  const dt = (d instanceof Date) ? d : new Date(d);
+  if (isNaN(dt.getTime())) return "";
+  return dt.toLocaleDateString("es-CL", { year: "numeric", month: "2-digit", day: "2-digit" });
+};
+
+function showToast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+function readFileAsRows(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: "array", cellDates: true });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+        resolve(rows);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo."));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function setupDropzone(zoneId, inputId, onLoaded) {
+  const zone = $(zoneId);
+  const input = $(inputId);
+  ["dragenter", "dragover"].forEach(ev => zone.addEventListener(ev, e => {
+    e.preventDefault(); zone.classList.add("drag");
+  }));
+  ["dragleave", "drop"].forEach(ev => zone.addEventListener(ev, e => {
+    e.preventDefault(); zone.classList.remove("drag");
+  }));
+  zone.addEventListener("drop", e => {
+    if (e.dataTransfer.files.length) {
+      input.files = e.dataTransfer.files;
+      input.dispatchEvent(new Event("change"));
+    }
+  });
+  input.addEventListener("change", async () => {
+    if (!input.files.length) return;
+    const file = input.files[0];
+    await onLoaded(file);
+  });
+}
+
+function renderFileInfo(containerId, file, count, error) {
+  const el = $(containerId);
+  if (error) {
+    el.innerHTML = `<div class="file-error">⚠ ${error}</div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="file-chip">
+      <div>
+        <div class="name">${file.name}</div>
+        <div class="meta">${count} filas detectadas</div>
+      </div>
+      <button title="Quitar">✕</button>
+    </div>`;
+  el.querySelector("button").addEventListener("click", () => {
+    el.innerHTML = "";
+    if (containerId === "#info-cartola") cartolaData = null;
+    if (containerId === "#info-sistema") sistemaData = null;
+    updateConciliarBtn();
+  });
+}
+
+function updateConciliarBtn() {
+  $("#btn-conciliar").disabled = !(cartolaData && cartolaData.length && sistemaData && sistemaData.length);
+}
+
+setupDropzone("#dz-cartola", "#file-cartola", async (file) => {
+  try {
+    const rows = await readFileAsRows(file);
+    cartolaData = loadCartola(rows);
+    renderFileInfo("#info-cartola", file, cartolaData.length, null);
+  } catch (err) {
+    cartolaData = null;
+    renderFileInfo("#info-cartola", file, 0, err.message);
+  }
+  updateConciliarBtn();
+});
+
+setupDropzone("#dz-sistema", "#file-sistema", async (file) => {
+  try {
+    const rows = await readFileAsRows(file);
+    sistemaData = loadSistema(rows);
+    renderFileInfo("#info-sistema", file, sistemaData.length, null);
+  } catch (err) {
+    sistemaData = null;
+    renderFileInfo("#info-sistema", file, 0, err.message);
+  }
+  updateConciliarBtn();
+});
+
+$("#umbral").addEventListener("input", e => {
+  $("#umbral-val").textContent = parseFloat(e.target.value).toFixed(2);
+});
+
+$("#btn-conciliar").addEventListener("click", () => {
+  const umbral = parseFloat($("#umbral").value);
+  const { resultados, morosos } = conciliar(cartolaData, sistemaData, umbral);
+  lastResultado = resultados;
+  lastMorosos = morosos;
+  renderResults(resultados, morosos, cartolaData);
+  $("#results").style.display = "block";
+  $("#results").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+$("#btn-demo").addEventListener("click", async () => {
+  const sistemaRows = DEMO_SISTEMA;
+  const cartolaRows = DEMO_CARTOLA;
+  cartolaData = loadCartola(cartolaRows);
+  sistemaData = loadSistema(sistemaRows);
+  renderFileInfo("#info-cartola", { name: "Cartola_Ejemplo.xlsx" }, cartolaData.length, null);
+  renderFileInfo("#info-sistema", { name: "Sistema_Ejemplo.xlsx" }, sistemaData.length, null);
+  updateConciliarBtn();
+  showToast('Datos de ejemplo cargados. Haz clic en "Conciliar pagos".');
+});
+
+/* ---------------- Render resultados ---------------- */
+
+const METODO_PILL = {
+  "Monto exacto + nombre": "ok",
+  "Monto exacto único": "ok",
+  "Cuota Plan de Pago": "ok",
+  "Pago combinado": "ok",
+  "Pago parcial": "warn",
+  "Posible coincidencia (revisar)": "warn",
+  "AMBIGUO": "warn",
+  "NO IDENTIFICADO": "bad",
+};
+
+function pill(metodo) {
+  const cls = METODO_PILL[metodo] || "warn";
+  return `<span class="pill ${cls}">${metodo}</span>`;
+}
+
+let currentTab = "identificados";
+
+function renderResults(resultados, morosos, cartola) {
+  const identificados = resultados.filter(r => !["NO IDENTIFICADO", "AMBIGUO", "Posible coincidencia (revisar)"].includes(r.metodo));
+  const parciales = resultados.filter(r => r.metodo === "Pago parcial");
+  const revisar = resultados.filter(r => ["AMBIGUO", "Posible coincidencia (revisar)"].includes(r.metodo));
+  const noIdent = resultados.filter(r => r.metodo === "NO IDENTIFICADO");
+
+  const montoCartola = cartola.reduce((a, t) => a + t.monto, 0);
+  const montoNoIdent = noIdent.reduce((a, t) => a + t.monto, 0);
+  const montoMoroso = morosos.reduce((a, m) => a + m.saldo, 0);
+  const pct = resultados.length ? identificados.length / resultados.length : 0;
+
+  $("#result-sub").textContent =
+    `${cartola.length} movimientos procesados · ${fmtMoney(montoCartola)} recibidos · ${(pct * 100).toFixed(1)}% conciliado automáticamente`;
+
+  $("#kpi-row").innerHTML = `
+    <div class="kpi ok"><div class="n">${identificados.length}</div><div class="l">Pagos identificados</div></div>
+    <div class="kpi warn"><div class="n">${parciales.length + revisar.length}</div><div class="l">Parciales + a revisar</div></div>
+    <div class="kpi bad"><div class="n">${noIdent.length}</div><div class="l">Sin identificar · ${fmtMoney(montoNoIdent)}</div></div>
+    <div class="kpi moroso"><div class="n">${morosos.length}</div><div class="l">Deudas sin pago · ${fmtMoney(montoMoroso)}</div></div>
+    <div class="kpi neutral"><div class="n">${(pct * 100).toFixed(0)}%</div><div class="l">Conciliación automática</div></div>
+  `;
+
+  const tabs = [
+    { id: "identificados", label: "Identificados", data: identificados, kind: "tx" },
+    { id: "parciales", label: "Parciales", data: parciales, kind: "tx" },
+    { id: "revisar", label: "A revisar", data: revisar, kind: "tx" },
+    { id: "noident", label: "Sin identificar", data: noIdent, kind: "tx" },
+    { id: "morosos", label: "Morosos / sin pago", data: morosos, kind: "deuda" },
+  ];
+
+  $("#tabs").innerHTML = tabs.map(t => `
+    <button class="tab-btn ${t.id === currentTab ? "active" : ""}" data-tab="${t.id}">
+      ${t.label} <span class="tab-count">${t.data.length}</span>
+    </button>
+  `).join("");
+
+  $("#tabs").querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentTab = btn.dataset.tab;
+      renderResults(resultados, morosos, cartola);
+    });
+  });
+
+  const active = tabs.find(t => t.id === currentTab);
+  renderTable(active);
+}
+
+function renderTable(tabInfo) {
+  const container = $("#table-container");
+  if (!tabInfo.data.length) {
+    container.innerHTML = `<div class="empty-state"><div class="big">✓</div>Sin registros en esta categoría.</div>`;
+    return;
+  }
+
+  if (tabInfo.kind === "tx") {
+    container.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Fecha</th><th>Glosa banco</th><th>Monto</th><th>Documento</th>
+          <th>Unidad</th><th>Propietario</th><th>Concepto</th><th>Método</th>
+        </tr></thead>
+        <tbody>
+          ${tabInfo.data.map(r => `
+            <tr>
+              <td>${fmtDate(r.fecha)}</td>
+              <td>${r.glosa}</td>
+              <td class="money">${fmtMoney(r.monto)}</td>
+              <td>${r.documento || ""}</td>
+              <td>${r.unidad || "—"}</td>
+              <td>${r.propietario || "—"}</td>
+              <td>${r.concepto || "—"}</td>
+              <td>${pill(r.metodo)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>`;
+  } else {
+    container.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Unidad</th><th>Propietario</th><th>Concepto</th><th>Tipo</th>
+          <th>Monto original</th><th>Saldo pendiente</th><th>Vencimiento</th><th>Estado</th>
+        </tr></thead>
+        <tbody>
+          ${tabInfo.data.map(m => `
+            <tr>
+              <td>${m.unidad}</td>
+              <td>${m.propietario}</td>
+              <td>${m.concepto}</td>
+              <td>${m.tipo_concepto}</td>
+              <td class="money">${fmtMoney(m.monto)}</td>
+              <td class="money">${fmtMoney(m.saldo)}</td>
+              <td>${fmtDate(m.fecha_venc)}</td>
+              <td><span class="pill moroso">${m.estado_match}</span></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>`;
+  }
+}
+
+/* ---------------- Exportar a Excel ---------------- */
+
+$("#btn-export").addEventListener("click", () => {
+  if (!lastResultado) return;
+  const wb = XLSX.utils.book_new();
+
+  const identificados = lastResultado.filter(r => !["NO IDENTIFICADO", "AMBIGUO", "Posible coincidencia (revisar)"].includes(r.metodo));
+  const parciales = lastResultado.filter(r => r.metodo === "Pago parcial");
+  const revisar = lastResultado.filter(r => ["AMBIGUO", "Posible coincidencia (revisar)"].includes(r.metodo));
+  const noIdent = lastResultado.filter(r => r.metodo === "NO IDENTIFICADO");
+
+  const txCols = r => ({
+    Fecha: fmtDate(r.fecha), Glosa: r.glosa, Monto: r.monto, Documento: r.documento,
+    Unidad: r.unidad, Propietario: r.propietario, Concepto: r.concepto, Metodo: r.metodo, Confianza: r.confianza,
+  });
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(identificados.map(txCols)), "Pagos_Identificados");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(parciales.map(txCols)), "Pagos_Parciales");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(revisar.map(txCols)), "A_Revisar");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(noIdent.map(r => ({ Fecha: fmtDate(r.fecha), Glosa: r.glosa, Monto: r.monto, Documento: r.documento }))), "Pagos_Sin_Identificar");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(lastMorosos.map(m => ({
+    Unidad: m.unidad, Propietario: m.propietario, Concepto: m.concepto, Tipo: m.tipo_concepto,
+    Monto: m.monto, Saldo: m.saldo, Vencimiento: fmtDate(m.fecha_venc), Estado: m.estado_match,
+  }))), "Morosos_Sin_Pago");
+
+  XLSX.writeFile(wb, `Conciliacion_JDVM_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast("Reporte descargado.");
+});
+
+/* ---------------- Datos de ejemplo (mismo caso validado) ---------------- */
+const DEMO_SISTEMA = [
+  { Unidad: "Depto 101", Propietario: "Juan Pérez Soto", Concepto: "Gasto Común Julio", "Monto Adeudado": 85000, "Fecha Vencimiento": "2026-07-05" },
+  { Unidad: "Depto 102", Propietario: "María González", Concepto: "Gasto Común Julio", "Monto Adeudado": 92000, "Fecha Vencimiento": "2026-07-05" },
+  { Unidad: "Depto 103", Propietario: "Carlos Fuentes", Concepto: "Gasto Común Julio", "Monto Adeudado": 78000, "Fecha Vencimiento": "2026-07-05" },
+  { Unidad: "Depto 104", Propietario: "Pedro Rojas", Concepto: "Gasto Común Julio", "Monto Adeudado": 92000, "Fecha Vencimiento": "2026-07-05" },
+  { Unidad: "Depto 105", Propietario: "Sofía Herrera", Concepto: "Gasto Común Julio", "Monto Adeudado": 81000, "Fecha Vencimiento": "2026-07-05" },
+  { Unidad: "Depto 106", Propietario: "Ana Muñoz Díaz", Concepto: "Gasto Común Julio", "Monto Adeudado": 88000, "Fecha Vencimiento": "2026-07-05" },
+  { Unidad: "Depto 106", Propietario: "Ana Muñoz Díaz", Concepto: "Multa Ruidos Molestos", "Monto Adeudado": 20000, "Fecha Vencimiento": "2026-07-05" },
+  { Unidad: "Depto 107", Propietario: "Rodrigo Silva", Concepto: "Gasto Común Julio", "Monto Adeudado": 90000, "Fecha Vencimiento": "2026-07-05" },
+  { Unidad: "Depto 107", Propietario: "Rodrigo Silva", Concepto: "Multa Estacionamiento", "Monto Adeudado": 30000, "Fecha Vencimiento": "2026-07-05" },
+  { Unidad: "Local 1", Propietario: "Constructora XYZ SpA", Concepto: "Arriendo Local Comercial", "Monto Adeudado": 250000, "Fecha Vencimiento": "2026-07-05" },
+  { Unidad: "Depto 108", Propietario: "Lorena Castro", Concepto: "Gasto Común Julio", "Monto Adeudado": 95000, "Fecha Vencimiento": "2026-07-05" },
+  { Unidad: "Depto 109", Propietario: "Francisco Vidal", Concepto: "Plan de Pago Cuota 2/6", "Monto Adeudado": 40000, "Fecha Vencimiento": "2026-07-05" },
+  { Unidad: "Depto 110", Propietario: "Camila Torres", Concepto: "Uso Espacio Común - Quincho", "Monto Adeudado": 25000, "Fecha Vencimiento": "2026-07-10" },
+  { Unidad: "Depto 111", Propietario: "Diego Salazar", Concepto: "Fondo de Reserva", "Monto Adeudado": 15000, "Fecha Vencimiento": "2026-07-05" },
+];
+const DEMO_CARTOLA = [
+  { Fecha: "2026-07-01", "Descripción / Glosa Banco": "TRANSF DE JUAN PEREZ SOTO", "Monto Abono": 85000, "N° Documento": "TRF-1001" },
+  { Fecha: "2026-07-02", "Descripción / Glosa Banco": "TRANSF RECIBIDA MARIA GONZALEZ", "Monto Abono": 92000, "N° Documento": "TRF-1002" },
+  { Fecha: "2026-07-02", "Descripción / Glosa Banco": "DEPOSITO EFECTIVO SUC CENTRO CARLOS FUENTES", "Monto Abono": 78000, "N° Documento": "DEP-2001" },
+  { Fecha: "2026-07-03", "Descripción / Glosa Banco": "TRANSF DE PEDRO ROJAS", "Monto Abono": 92000, "N° Documento": "TRF-1003" },
+  { Fecha: "2026-07-04", "Descripción / Glosa Banco": "TRANSF ANA MUNOZ DIAZ", "Monto Abono": 108000, "N° Documento": "TRF-1004" },
+  { Fecha: "2026-07-05", "Descripción / Glosa Banco": "TRANSF RODRIGO SILVA", "Monto Abono": 90000, "N° Documento": "TRF-1005" },
+  { Fecha: "2026-07-05", "Descripción / Glosa Banco": "TRANSF CONSTRUCTORA XYZ SPA", "Monto Abono": 250000, "N° Documento": "TRF-1006" },
+  { Fecha: "2026-07-06", "Descripción / Glosa Banco": "TRANSF LORENA CASTRO", "Monto Abono": 70000, "N° Documento": "TRF-1007" },
+  { Fecha: "2026-07-06", "Descripción / Glosa Banco": "TRANSF FRANCISCO VIDAL CUOTA", "Monto Abono": 40000, "N° Documento": "TRF-1008" },
+  { Fecha: "2026-07-07", "Descripción / Glosa Banco": "TRANSF CAMILA TORRES", "Monto Abono": 25000, "N° Documento": "TRF-1009" },
+  { Fecha: "2026-07-07", "Descripción / Glosa Banco": "TRANSF RECIBIDA SIN GLOSA", "Monto Abono": 60000, "N° Documento": "TRF-1010" },
+  { Fecha: "2026-07-08", "Descripción / Glosa Banco": "TRANSF DIEGO SALAZAR", "Monto Abono": 15000, "N° Documento": "TRF-1011" },
+  { Fecha: "2026-07-09", "Descripción / Glosa Banco": "PAGO PAT PATENTE COMERCIAL MUNICIPALIDAD", "Monto Abono": 45000, "N° Documento": "TRF-1012" },
+];
+</script>
+</body>
+</html>
