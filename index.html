@@ -323,7 +323,8 @@
         <div class="dz-title">Arrastra el archivo aquí o haz clic</div>
         <div class="dz-sub">XLSX, XLS o CSV</div>
       </label>
-      <p class="field-help"><span class="ic">💡</span> Es el listado de lo que cada unidad debe pagar este mes (gastos comunes, multas, etc.).</p>
+      <p class="field-help"><span class="ic">💡</span> Es el listado de lo que cada unidad debe pagar este mes (gastos comunes, multas, etc.). Puedes subir el archivo de "Resumen de Pagos" del sistema de administración tal cual lo descargas — no hace falta limpiarlo a mano.</p>
+      <p class="field-help"><span class="ic">✅</span> El sistema detecta solo la fila de encabezado aunque el archivo traiga títulos arriba, usa el Saldo Pendiente (no el Total Cobro), y descarta la fila de TOTALES automáticamente.</p>
       <div id="info-sistema"></div>
     </div>
   </div>
@@ -541,6 +542,54 @@ function parseDate(v) {
 // Carga de tablas (rows = array de objetos {header: valor}, tal como entrega
 // XLSX.utils.sheet_to_json en el navegador)
 // ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+   Detección inteligente de la fila de encabezados
+   Muchos exports reales (como el de Edifito) traen 2-5 filas de título antes
+   de la fila con los nombres de columna real ("Unidad Copropiedad", "Total
+   Cobro", etc.). Esto escanea las primeras filas del archivo y elige la que
+   más se parece a un encabezado real, en vez de asumir que es la fila 1.
+--------------------------------------------------------------------------- */
+const HEADER_HINTS = ["unidad", "monto", "saldo", "fecha", "propietario", "glosa", "abono",
+  "cobro", "adeudado", "deuda", "cargo", "descripcion", "documento", "concepto", "nombre", "pagado"];
+
+function smartRowsFromAOA(aoa) {
+  let headerRowIdx = 0;
+  let bestScore = -1;
+  const scanLimit = Math.min(aoa.length, 20);
+  for (let i = 0; i < scanLimit; i++) {
+    const row = aoa[i] || [];
+    const nonEmpty = row.filter(c => c !== "" && c !== null && c !== undefined);
+    if (nonEmpty.length < 2) continue; // muy poco contenido para ser encabezado
+    const textCells = nonEmpty.filter(c => typeof c === "string");
+    const numericCells = nonEmpty.filter(c => typeof c === "number");
+    let score = textCells.length;
+    const normRow = row.map(c => normalizeText(c));
+    HEADER_HINTS.forEach(h => { if (normRow.some(c => c.includes(normalizeText(h)))) score += 2; });
+    if (numericCells.length > textCells.length) score -= 3; // fila de datos, no encabezado
+    if (score > bestScore) { bestScore = score; headerRowIdx = i; }
+  }
+  const headerRow = aoa[headerRowIdx] || [];
+  const headers = headerRow.map((h, i) => (h === "" || h === null || h === undefined) ? `Columna ${i + 1}` : String(h).trim());
+  const dataRows = aoa.slice(headerRowIdx + 1).filter(r => r.some(c => c !== "" && c !== null && c !== undefined));
+  const rows = dataRows.map(r => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = r[i] !== undefined ? r[i] : ""; });
+    return obj;
+  });
+  const titleText = aoa.slice(0, headerRowIdx)
+    .map(r => r.filter(c => c !== "" && c !== null && c !== undefined).join(" "))
+    .join(" \n ");
+  return { rows, titleText };
+}
+
+function detectarPeriodo(titleText) {
+  if (!titleText) return null;
+  const m = titleText.match(/([A-Za-zÁÉÍÓÚÑáéíóúñ]+)\s+del?\s+(\d{4})/i);
+  if (!m) return null;
+  const mes = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
+  return `${mes} ${m[2]}`;
+}
+
 function loadCartola(rows) {
   if (!rows.length) throw new Error("La cartola está vacía.");
   const cols = Object.keys(rows[0]);
@@ -581,33 +630,41 @@ function clasificarConcepto(concepto) {
   return "Gasto Común";
 }
 
-function loadSistema(rows) {
+function loadSistema(rows, titleText) {
   if (!rows.length) throw new Error("El archivo del sistema está vacío.");
   const cols = Object.keys(rows[0]);
   const colUnidad = detectColumn(cols, ["unidad", "depto", "departamento"]);
-  const colProp = detectColumn(cols, ["propietario", "residente", "nombre"]);
+  const colProp = detectColumn(cols, ["propietario", "residente", "copropietario", "nombre"]);
   const colConcepto = detectColumn(cols, ["concepto", "tipo de cobro", "detalle", "glosa"]);
-  const colMonto = detectColumn(cols, ["monto adeudado", "adeudado", "deuda", "monto", "valor"]);
+  // "Saldo Pendiente" va primero: en exports reales (ej. Edifito) puede existir junto a
+  // "Total Cobro" -- interesa lo que aún se debe, no el cargo total del mes.
+  const colMonto = detectColumn(cols, ["saldo pendiente", "monto adeudado", "adeudado", "deuda", "saldo", "monto", "valor", "total cobro"]);
   const colFVenc = detectColumn(cols, ["vencimiento", "fecha"]);
   const colEstado = detectColumn(cols, ["estado"]);
 
   const missing = [];
   if (!colUnidad) missing.push("Unidad");
-  if (!colProp) missing.push("Propietario");
   if (!colMonto) missing.push("Monto");
   if (missing.length) {
     throw new Error(`No pude detectar columnas en el sistema: ${missing.join(", ")}. Columnas encontradas: ${cols.join(", ")}`);
   }
 
+  const periodo = detectarPeriodo(titleText);
+  const conceptoDefault = periodo ? `Gasto Común ${periodo}` : "Gasto Común";
+
   const out = [];
   rows.forEach((r, idx) => {
+    const unidadTxt = String(r[colUnidad] ?? "").trim();
+    if (!unidadTxt || normalizeText(unidadTxt).includes("TOTAL")) return; // filas resumen/TOTALES, no son unidades reales
     const monto = toNumber(r[colMonto]);
     if (!monto || monto <= 0) return;
-    const concepto = colConcepto ? String(r[colConcepto] ?? "Gasto Común") : "Gasto Común";
+    let propietario = colProp ? String(r[colProp] ?? "").trim() : "";
+    if (!propietario) propietario = `(Sin nombre registrado — ${unidadTxt})`;
+    const concepto = colConcepto ? (String(r[colConcepto] ?? "").trim() || conceptoDefault) : conceptoDefault;
     out.push({
       deuda_id: `DEU${String(idx + 1).padStart(4, "0")}`,
-      unidad: String(r[colUnidad] ?? ""),
-      propietario: String(r[colProp] ?? ""),
+      unidad: unidadTxt,
+      propietario,
       concepto,
       tipo_concepto: clasificarConcepto(concepto),
       monto,
@@ -1256,7 +1313,8 @@ function readFileAsRows(file) {
       try {
         const wb = XLSX.read(e.target.result, { type: "array", cellDates: true });
         const sheet = wb.Sheets[wb.SheetNames[0]];
-        resolve(XLSX.utils.sheet_to_json(sheet, { defval: "" }));
+        const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+        resolve(smartRowsFromAOA(aoa));
       } catch (err) { reject(err); }
     };
     reader.onerror = () => reject(new Error("No se pudo leer el archivo."));
@@ -1297,7 +1355,8 @@ function updateConciliarBtn() {
 
 setupDropzone("#dz-cartola", "#file-cartola", async (file) => {
   try {
-    cartolaData = loadCartola(await readFileAsRows(file));
+    const parsed = await readFileAsRows(file);
+    cartolaData = loadCartola(parsed.rows);
     renderFileInfo("#info-cartola", file, cartolaData.length, null);
   } catch (err) { cartolaData = null; renderFileInfo("#info-cartola", file, 0, err.message); }
   updateConciliarBtn();
@@ -1305,7 +1364,8 @@ setupDropzone("#dz-cartola", "#file-cartola", async (file) => {
 
 setupDropzone("#dz-sistema", "#file-sistema", async (file) => {
   try {
-    sistemaData = loadSistema(await readFileAsRows(file));
+    const parsed = await readFileAsRows(file);
+    sistemaData = loadSistema(parsed.rows, parsed.titleText);
     renderFileInfo("#info-sistema", file, sistemaData.length, null);
   } catch (err) { sistemaData = null; renderFileInfo("#info-sistema", file, 0, err.message); }
   updateConciliarBtn();
