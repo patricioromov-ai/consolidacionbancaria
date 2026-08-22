@@ -132,6 +132,28 @@
   .action-bar{display:flex;gap:10px;flex-wrap:wrap;}
 
   .tabs{display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:0;overflow-x:auto;}
+
+  /* ---------------- Barra de filtros ---------------- */
+  .filter-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:14px 4px 10px;}
+  .filter-group{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .filter-label{font-size:var(--fs-xs);font-weight:700;color:var(--slate);margin-right:2px;}
+  .chip{
+    border:1.5px solid var(--border);background:#fff;color:var(--slate);font-size:var(--fs-xs);font-weight:700;
+    padding:7px 12px;border-radius:100px;cursor:pointer;white-space:nowrap;min-height:34px;
+  }
+  .chip:hover{border-color:var(--accent);color:var(--accent-dark);}
+  .chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .chip.anomalia.active{background:var(--bad);border-color:var(--bad);}
+  .filter-input{border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:var(--fs-xs);min-height:34px;width:120px;}
+  .filter-select{border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:var(--fs-xs);min-height:34px;}
+  .filter-clear{border:none;background:none;color:var(--bad);font-weight:700;font-size:var(--fs-xs);cursor:pointer;padding:6px 8px;}
+  .filter-count{font-size:var(--fs-xs);color:var(--slate);margin-left:auto;font-weight:600;}
+
+  .anomaly-badge{display:inline-block;font-size:var(--fs-xs);background:var(--bad-bg);color:var(--bad);padding:2px 8px;border-radius:100px;font-weight:700;margin-left:6px;}
+
+  .selection-bar{display:none;align-items:center;gap:12px;padding:10px 16px;background:var(--accent-soft);border-radius:10px;margin-bottom:10px;font-size:var(--fs-sm);}
+  .selection-bar.show{display:flex;flex-wrap:wrap;}
+  input[type=checkbox].row-check{width:20px;height:20px;cursor:pointer;accent-color:var(--accent);}
   .tab-btn{font-family:'Inter',sans-serif;font-size:var(--fs-sm);font-weight:700;color:var(--slate);background:none;border:none;padding:13px 16px;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;display:flex;align-items:center;gap:7px;min-height:var(--tap);}
   .tab-btn.active{color:var(--ink);border-bottom-color:var(--accent);}
   .tab-count{background:#E7EBF0;color:var(--slate);font-size:var(--fs-xs);font-weight:700;padding:2px 8px;border-radius:100px;}
@@ -385,6 +407,13 @@
 
     <div class="tabs" id="tabs"></div>
     <p id="tab-explainer" style="font-size:var(--fs-sm);color:var(--slate);margin:10px 2px 0;"></p>
+    <div class="filter-bar" id="filter-bar"></div>
+    <div class="selection-bar" id="selection-bar">
+      <span id="selection-count">0 seleccionadas</span>
+      <button class="btn btn-ghost btn-sm" id="btn-seleccionar-todo">Seleccionar todas las visibles</button>
+      <button class="btn btn-ghost btn-sm" id="btn-limpiar-seleccion">Limpiar selección</button>
+      <button class="btn btn-primary btn-sm" id="btn-imprimir-seleccion">🖨 Imprimir / PDF seleccionadas</button>
+    </div>
     <div class="card table-card" style="margin-top:10px;">
       <div class="table-scroll" id="table-container"></div>
     </div>
@@ -597,6 +626,7 @@ function loadCartola(rows) {
   const colMonto = detectColumn(cols, ["monto abono", "abono", "haber", "monto", "valor"], ["cargo"]);
   const colGlosa = detectColumn(cols, ["glosa", "descripcion", "detalle", "concepto"]);
   const colDoc = detectColumn(cols, ["documento", "referencia", "n doc", "folio", "comprobante"]);
+  const colBanco = detectColumn(cols, ["banco", "cuenta"]);
 
   const missing = [];
   if (!colFecha) missing.push("Fecha");
@@ -616,6 +646,7 @@ function loadCartola(rows) {
       glosa: String(r[colGlosa] ?? ""),
       monto,
       documento: colDoc ? String(r[colDoc] ?? "") : "",
+      banco: colBanco ? String(r[colBanco] ?? "").trim() : "",
     });
   });
   return out;
@@ -628,6 +659,20 @@ function clasificarConcepto(concepto) {
   if (c.includes("ESPACIO") || c.includes("QUINCHO") || c.includes("SALON") || c.includes("SALA")) return "Uso Espacio Común";
   if (c.includes("RESERVA")) return "Fondo de Reserva";
   return "Gasto Común";
+}
+
+// Clasifica una unidad por su código (A-0001, BOD-014A, EST-..., etc.) en su
+// torre / tipo, para poder filtrar por torre, estacionamiento o bodega.
+function tipoUnidadDesde(unidadRaw) {
+  const u = String(unidadRaw || "").trim().toUpperCase();
+  if (!u) return "Sin datos";
+  if (u.startsWith("BOD")) return "Bodega";
+  if (u.startsWith("EST")) return "Estacionamiento";
+  if (u.includes("LAVANDERIA")) return "Lavandería";
+  if (u.includes("INMOBILIARIA")) return "Local / Inmobiliaria";
+  const m = u.match(/^([A-Z])[- ]/);
+  if (m && ["A", "B", "C", "D"].includes(m[1])) return `Torre ${m[1]}`;
+  return "Otro";
 }
 
 function loadSistema(rows, titleText) {
@@ -653,27 +698,34 @@ function loadSistema(rows, titleText) {
   const conceptoDefault = periodo ? `Gasto Común ${periodo}` : "Gasto Común";
 
   const out = [];
+  const universo = []; // TODAS las unidades encontradas en el archivo, tengan o no deuda
   rows.forEach((r, idx) => {
     const unidadTxt = String(r[colUnidad] ?? "").trim();
     if (!unidadTxt || normalizeText(unidadTxt).includes("TOTAL")) return; // filas resumen/TOTALES, no son unidades reales
-    const monto = toNumber(r[colMonto]);
-    if (!monto || monto <= 0) return;
+    const montoRaw = toNumber(r[colMonto]);
+    const monto = isNaN(montoRaw) ? 0 : montoRaw;
     let propietario = colProp ? String(r[colProp] ?? "").trim() : "";
     if (!propietario) propietario = `(Sin nombre registrado — ${unidadTxt})`;
     const concepto = colConcepto ? (String(r[colConcepto] ?? "").trim() || conceptoDefault) : conceptoDefault;
-    out.push({
-      deuda_id: `DEU${String(idx + 1).padStart(4, "0")}`,
-      unidad: unidadTxt,
-      propietario,
-      concepto,
-      tipo_concepto: clasificarConcepto(concepto),
-      monto,
-      saldo: monto,
-      fecha_venc: colFVenc ? parseDate(r[colFVenc]) : null,
-      estado_sistema: colEstado ? String(r[colEstado] ?? "") : "",
-      estado_match: "PENDIENTE",
-    });
+
+    universo.push({ unidad: unidadTxt, propietario, monto });
+
+    if (monto > 0) {
+      out.push({
+        deuda_id: `DEU${String(idx + 1).padStart(4, "0")}`,
+        unidad: unidadTxt,
+        propietario,
+        concepto,
+        tipo_concepto: clasificarConcepto(concepto),
+        monto,
+        saldo: monto,
+        fecha_venc: colFVenc ? parseDate(r[colFVenc]) : null,
+        estado_sistema: colEstado ? String(r[colEstado] ?? "") : "",
+        estado_match: "PENDIENTE",
+      });
+    }
   });
+  out.universo = universo; // censo completo, para mostrar también las unidades sin deuda
   return out;
 }
 
@@ -823,6 +875,7 @@ function conciliar(cartola, sistema, umbralNombre = 0.55) {
       glosa,
       monto: montoTx,
       documento: tx.documento,
+      banco: tx.banco || "",
       metodo,
       confianza,
       unidad: unidades.join(", "),
@@ -889,6 +942,7 @@ const STATE = {
   rows: [],       // filas de la cartola (pagos), editables
   deudas: [],     // filas del sistema (deudas), editables
   tiposPago: ["Transferencia", "Pago Asociado", "Tarjeta", "Multa", "Otro"],
+  universo: [],   // TODAS las unidades del sistema cargado (con y sin deuda) — solo informativo
 };
 
 const MONTO_TOL_UI = 1;
@@ -900,7 +954,7 @@ function estadoDesdeMetodo(metodo) {
   return "Identificado";
 }
 
-function initStateFromConciliacion(resultados, deudas) {
+function initStateFromConciliacion(resultados, deudas, universo) {
   STATE.deudas = deudas.map(d => ({ ...d, plan: null, nota: "", adjunto: null }));
   STATE.rows = resultados.map(r => ({
     ...r,
@@ -911,6 +965,7 @@ function initStateFromConciliacion(resultados, deudas) {
     nota: "",
     adjunto: null, // { name, type, dataUrl?, driveUrl? }
   }));
+  STATE.universo = universo || [];
 }
 
 /* ---------------- Vincular / desvincular pagos con deudas ---------------- */
@@ -948,6 +1003,135 @@ function linkRow(row, deudaId) {
 
 /* ---------------- Render principal ---------------- */
 
+const FILTERS = { tipoUnidad: null, montoMin: null, tipoPago: null, banco: null, soloAnomalias: false };
+let seleccionados = new Set();
+
+function idDe(kind, item) {
+  if (kind === "tx") return item.row_id;
+  if (kind === "deuda") return item.deuda_id;
+  return item.unidad; // aldia
+}
+
+function detectarAnomalias(data, kind) {
+  const anómalos = new Set();
+  if (!data.length) return anómalos;
+  const montoDe = (d) => (kind === "deuda" || kind === "aldia") ? Math.abs(d.saldo ?? d.monto ?? 0) : d.monto;
+  const montos = data.map(montoDe).filter(m => typeof m === "number" && m > 0);
+  if (montos.length) {
+    const sorted = [...montos].sort((a, b) => a - b);
+    const mediana = sorted[Math.floor(sorted.length / 2)];
+    data.forEach(d => {
+      const monto = montoDe(d);
+      let anomalo = false;
+      if (mediana > 0 && monto > 0 && (monto > mediana * 4 || monto < mediana * 0.08)) anomalo = true;
+      if (kind === "deuda" && d.saldo < 0) anomalo = true; // saldo negativo (sobrepago no reflejado)
+      if (anomalo) anómalos.add(idDe(kind, d));
+    });
+  }
+  if (kind === "tx") {
+    const vistos = new Map();
+    data.forEach(d => {
+      const key = `${normalizeText(d.glosa)}|${d.monto}|${d.documento}`;
+      vistos.set(key, (vistos.get(key) || 0) + 1);
+    });
+    data.forEach(d => {
+      const key = `${normalizeText(d.glosa)}|${d.monto}|${d.documento}`;
+      if (vistos.get(key) > 1) anómalos.add(d.row_id); // posible pago duplicado
+    });
+  }
+  return anómalos;
+}
+
+function aplicarFiltros(data, kind, anomalias) {
+  return data.filter(item => {
+    if (FILTERS.tipoUnidad && tipoUnidadDesde(item.unidad) !== FILTERS.tipoUnidad) return false;
+    if (FILTERS.montoMin != null) {
+      const monto = (kind === "deuda" || kind === "aldia") ? (item.saldo ?? item.monto) : item.monto;
+      if (!(Math.abs(monto) >= FILTERS.montoMin)) return false;
+    }
+    if (kind === "tx" && FILTERS.tipoPago && item.tipo_pago !== FILTERS.tipoPago) return false;
+    if (kind === "tx" && FILTERS.banco && (item.banco || "Sin especificar") !== FILTERS.banco) return false;
+    if (FILTERS.soloAnomalias && !anomalias.has(idDe(kind, item))) return false;
+    return true;
+  });
+}
+
+function filtrosActivos() {
+  return !!(FILTERS.tipoUnidad || FILTERS.montoMin != null || FILTERS.tipoPago || FILTERS.banco || FILTERS.soloAnomalias);
+}
+
+function renderFilterBar(fullData, kind) {
+  const el = $("#filter-bar");
+  if (!fullData.length) { el.innerHTML = ""; return; }
+
+  const tiposUnidad = [...new Set(fullData.map(d => tipoUnidadDesde(d.unidad)))].sort();
+  let html = "";
+
+  if (tiposUnidad.length > 1) {
+    html += `<div class="filter-group"><span class="filter-label">🏢 Torre/tipo:</span>`;
+    html += `<button class="chip ${!FILTERS.tipoUnidad ? "active" : ""}" data-filter="tipoUnidad" data-value="">Todas</button>`;
+    tiposUnidad.forEach(t => {
+      html += `<button class="chip ${FILTERS.tipoUnidad === t ? "active" : ""}" data-filter="tipoUnidad" data-value="${t}">${t}</button>`;
+    });
+    html += `</div>`;
+  }
+
+  if (kind === "tx") {
+    const tiposPago = [...new Set(fullData.map(d => d.tipo_pago).filter(Boolean))].sort();
+    if (tiposPago.length > 1) {
+      html += `<div class="filter-group"><span class="filter-label">Tipo de pago:</span>
+        <select class="filter-select" id="filtro-tipopago">
+          <option value="">Todos</option>
+          ${tiposPago.map(t => `<option value="${t}" ${FILTERS.tipoPago === t ? "selected" : ""}>${t}</option>`).join("")}
+        </select></div>`;
+    }
+    const bancos = [...new Set(fullData.map(d => d.banco || "Sin especificar"))];
+    if (bancos.length > 1) {
+      html += `<div class="filter-group"><span class="filter-label">Banco/cuenta:</span>
+        <select class="filter-select" id="filtro-banco">
+          <option value="">Todos</option>
+          ${bancos.map(b => `<option value="${b}" ${FILTERS.banco === b ? "selected" : ""}>${b}</option>`).join("")}
+        </select></div>`;
+    }
+  }
+
+  html += `<div class="filter-group"><span class="filter-label">💰 Monto mayor a:</span>
+    <input type="number" class="filter-input" id="filtro-monto" placeholder="$" value="${FILTERS.montoMin ?? ""}"></div>`;
+
+  html += `<button class="chip anomalia ${FILTERS.soloAnomalias ? "active" : ""}" id="filtro-anomalias" title="Montos muy distintos al resto, o pagos duplicados">🚩 Solo anomalías</button>`;
+
+  if (filtrosActivos()) html += `<button class="filter-clear" id="filtro-limpiar">✕ Limpiar filtros</button>`;
+
+  el.innerHTML = html;
+
+  el.querySelectorAll('[data-filter="tipoUnidad"]').forEach(btn => {
+    btn.addEventListener("click", () => { FILTERS.tipoUnidad = btn.dataset.value || null; renderResults(); });
+  });
+  const selTipoPago = $("#filtro-tipopago");
+  if (selTipoPago) selTipoPago.addEventListener("change", () => { FILTERS.tipoPago = selTipoPago.value || null; renderResults(); });
+  const selBanco = $("#filtro-banco");
+  if (selBanco) selBanco.addEventListener("change", () => { FILTERS.banco = selBanco.value || null; renderResults(); });
+  const inpMonto = $("#filtro-monto");
+  if (inpMonto) inpMonto.addEventListener("change", () => { const v = parseFloat(inpMonto.value); FILTERS.montoMin = isNaN(v) ? null : v; renderResults(); });
+  const btnAnom = $("#filtro-anomalias");
+  if (btnAnom) btnAnom.addEventListener("click", () => { FILTERS.soloAnomalias = !FILTERS.soloAnomalias; renderResults(); });
+  const btnLimpiar = $("#filtro-limpiar");
+  if (btnLimpiar) btnLimpiar.addEventListener("click", () => {
+    FILTERS.tipoUnidad = null; FILTERS.montoMin = null; FILTERS.tipoPago = null; FILTERS.banco = null; FILTERS.soloAnomalias = false;
+    renderResults();
+  });
+}
+
+function actualizarBarraSeleccion() {
+  const bar = $("#selection-bar");
+  if (seleccionados.size > 0) {
+    bar.classList.add("show");
+    $("#selection-count").textContent = `${seleccionados.size} seleccionada${seleccionados.size === 1 ? "" : "s"}`;
+  } else {
+    bar.classList.remove("show");
+  }
+}
+
 function renderResults() {
   const rows = STATE.rows;
   const deudas = STATE.deudas;
@@ -957,14 +1141,17 @@ function renderResults() {
   const revisar = rows.filter(r => r.estado === "A revisar");
   const noIdent = rows.filter(r => r.estado === "Sin identificar");
   const morosos = deudas.filter(d => d.estado_match !== "PAGADO");
+  const alDia = (STATE.universo || []).filter(u => (u.monto || 0) <= 0);
 
   const montoCartola = rows.reduce((a, t) => a + t.monto, 0);
   const montoNoIdent = noIdent.reduce((a, t) => a + t.monto, 0);
   const montoMoroso = morosos.reduce((a, m) => a + m.saldo, 0);
   const pct = rows.length ? identificados.length / rows.length : 0;
+  const totalUnidades = (STATE.universo || []).length;
 
-  $("#result-sub").textContent =
-    `${rows.length} movimientos procesados · ${fmtMoney(montoCartola)} recibidos · ${(pct * 100).toFixed(1)}% conciliado`;
+  $("#result-sub").textContent = totalUnidades
+    ? `${rows.length} movimientos procesados · ${fmtMoney(montoCartola)} recibidos · ${(pct * 100).toFixed(1)}% conciliado · ${totalUnidades} unidades en el sistema (${morosos.length} con deuda, ${alDia.length} al día)`
+    : `${rows.length} movimientos procesados · ${fmtMoney(montoCartola)} recibidos · ${(pct * 100).toFixed(1)}% conciliado`;
 
   $("#kpi-row").innerHTML = `
     <div class="kpi ok"><div class="n">${identificados.length}</div><div class="l">Pagos identificados</div></div>
@@ -980,6 +1167,7 @@ function renderResults() {
     revisar: "⚠️ El sistema no está 100% seguro de estos — revísalos y confirma o corrige a mano.",
     noident: "❌ Entró dinero a la cuenta pero no se sabe de quién es. Usa la columna \"Unidad / Propietario\" para buscarlo y vincularlo.",
     morosos: "🟣 Estas son las deudas que aún no se han pagado (total o parcialmente). Puedes marcarlas como Pagado o armar un Plan de pago.",
+    aldia: "🟢 Estas unidades no tienen deuda pendiente según el sistema cargado — no necesitan revisión, se muestran solo para que tengas la foto completa de todas tus unidades.",
   };
 
   const tabs = [
@@ -988,6 +1176,7 @@ function renderResults() {
     { id: "revisar", label: "A revisar", data: revisar, kind: "tx" },
     { id: "noident", label: "Sin identificar", data: noIdent, kind: "tx" },
     { id: "morosos", label: "Morosos / sin pago", data: morosos, kind: "deuda" },
+    { id: "aldia", label: "Al día", data: alDia, kind: "aldia" },
   ];
 
   $("#tabs").innerHTML = tabs.map(t => `
@@ -996,12 +1185,20 @@ function renderResults() {
     </button>
   `).join("");
   $("#tabs").querySelectorAll(".tab-btn").forEach(btn => {
-    btn.addEventListener("click", () => { currentTab = btn.dataset.tab; renderResults(); });
+    btn.addEventListener("click", () => {
+      if (btn.dataset.tab !== currentTab) { seleccionados.clear(); actualizarBarraSeleccion(); }
+      currentTab = btn.dataset.tab;
+      renderResults();
+    });
   });
   $("#tab-explainer").textContent = tabExplainers[currentTab] || "";
 
   const active = tabs.find(t => t.id === currentTab);
-  renderTable(active);
+  const anomalias = detectarAnomalias(active.data, active.kind);
+  renderFilterBar(active.data, active.kind);
+  const dataFiltrada = aplicarFiltros(active.data, active.kind, anomalias);
+  renderTable({ ...active, data: dataFiltrada }, anomalias);
+  actualizarBarraSeleccion();
   saveDraftLocal();
 }
 
@@ -1028,10 +1225,22 @@ function attachButton(kind, id, item) {
   return `<button class="attach-btn ${has ? "has-data" : ""}" data-action="attach" data-kind="${kind}" data-id="${id}" title="Adjuntar foto, documento o nota de este movimiento">${label}</button>`;
 }
 
-function renderTable(tabInfo) {
+function checkboxCell(kind, item) {
+  const id = idDe(kind, item);
+  const checked = seleccionados.has(id) ? "checked" : "";
+  return `<td><input type="checkbox" class="row-check" data-select-id="${id}" ${checked}></td>`;
+}
+
+function anomalyBadge(kind, item, anomalias) {
+  return anomalias.has(idDe(kind, item)) ? `<span class="anomaly-badge">🚩 revisar</span>` : "";
+}
+
+function renderTable(tabInfo, anomalias) {
   const container = $("#table-container");
+  anomalias = anomalias || new Set();
   if (!tabInfo.data.length) {
-    container.innerHTML = `<div class="empty-state"><div class="big">✓</div>Sin registros en esta categoría.</div>`;
+    const msg = filtrosActivos() ? "Ningún registro calza con los filtros elegidos." : "Sin registros en esta categoría.";
+    container.innerHTML = `<div class="empty-state"><div class="big">${filtrosActivos() ? "🔍" : "✓"}</div>${msg}</div>`;
     return;
   }
 
@@ -1039,14 +1248,15 @@ function renderTable(tabInfo) {
     container.innerHTML = `
       <table>
         <thead><tr>
-          <th>Fecha</th><th>Glosa banco</th><th>Monto</th><th>Documento</th>
+          <th></th><th>Fecha</th><th>Glosa banco</th><th>Monto</th><th>Documento</th>
           <th>Unidad / Propietario / Concepto</th><th>Tipo de pago</th><th>Estado</th><th>Respaldo</th>
         </tr></thead>
         <tbody>
           ${tabInfo.data.map(r => `
             <tr data-row-id="${r.row_id}">
+              ${checkboxCell("tx", r)}
               <td class="nowrap">${fmtDate(r.fecha)}</td>
-              <td>${r.glosa}</td>
+              <td>${r.glosa}${anomalyBadge("tx", r, anomalias)}</td>
               <td class="money">${fmtMoney(r.monto)}</td>
               <td>${r.documento || ""}</td>
               <td>${
@@ -1065,11 +1275,11 @@ function renderTable(tabInfo) {
           `).join("")}
         </tbody>
       </table>`;
-  } else {
+  } else if (tabInfo.kind === "deuda") {
     container.innerHTML = `
       <table>
         <thead><tr>
-          <th>Unidad</th><th>Propietario</th><th>Concepto</th><th>Tipo</th>
+          <th></th><th>Unidad</th><th>Propietario</th><th>Concepto</th><th>Tipo</th>
           <th>Monto</th><th>Saldo</th><th>Vencimiento</th><th>Estado</th>
           <th>Pago inicial</th><th>N° cuotas</th><th>Valor cuota</th><th>Respaldo</th>
         </tr></thead>
@@ -1080,9 +1290,10 @@ function renderTable(tabInfo) {
             const valorCuota = isPlan ? Math.max(0, Math.round((m.saldo - (plan.pago_inicial || 0)) / (plan.n_cuotas || 1))) : 0;
             return `
             <tr data-deuda-id="${m.deuda_id}">
+              ${checkboxCell("deuda", m)}
               <td class="nowrap">${m.unidad}</td>
               <td>${m.propietario}</td>
-              <td>${m.concepto}</td>
+              <td>${m.concepto}${anomalyBadge("deuda", m, anomalias)}</td>
               <td>${m.tipo_concepto}</td>
               <td class="money">${fmtMoney(m.monto)}</td>
               <td>
@@ -1106,6 +1317,23 @@ function renderTable(tabInfo) {
               <td>${attachButton("deuda", m.deuda_id, m)}</td>
             </tr>`;
           }).join("")}
+        </tbody>
+      </table>`;
+  } else {
+    // "aldia": unidades sin deuda pendiente — solo informativo, no editable
+    container.innerHTML = `
+      <table>
+        <thead><tr><th></th><th>Unidad</th><th>Propietario</th><th>Tipo</th><th>Estado</th></tr></thead>
+        <tbody>
+          ${tabInfo.data.map(u => `
+            <tr>
+              ${checkboxCell("aldia", u)}
+              <td class="nowrap">${u.unidad}</td>
+              <td>${u.propietario}</td>
+              <td>${tipoUnidadDesde(u.unidad)}</td>
+              <td><span class="pill ok">🟢 Sin deuda pendiente</span></td>
+            </tr>
+          `).join("")}
         </tbody>
       </table>`;
   }
@@ -1179,6 +1407,27 @@ $("#table-container").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-action='attach']");
     openAttachModal(btn.dataset.kind, btn.dataset.id);
   }
+});
+
+$("#table-container").addEventListener("change", (e) => {
+  if (e.target.classList.contains("row-check")) {
+    const id = e.target.dataset.selectId;
+    if (e.target.checked) seleccionados.add(id); else seleccionados.delete(id);
+    actualizarBarraSeleccion();
+  }
+});
+
+$("#btn-seleccionar-todo").addEventListener("click", () => {
+  $("#table-container").querySelectorAll(".row-check").forEach(cb => {
+    cb.checked = true;
+    seleccionados.add(cb.dataset.selectId);
+  });
+  actualizarBarraSeleccion();
+});
+$("#btn-limpiar-seleccion").addEventListener("click", () => {
+  seleccionados.clear();
+  $("#table-container").querySelectorAll(".row-check").forEach(cb => { cb.checked = false; });
+  actualizarBarraSeleccion();
 });
 
 /* =========================================================================
@@ -1376,7 +1625,7 @@ $("#umbral").addEventListener("input", e => { $("#umbral-val").textContent = par
 $("#btn-conciliar").addEventListener("click", () => {
   const umbral = parseFloat($("#umbral").value);
   const { resultados, deudas } = conciliar(cartolaData, sistemaData, umbral);
-  initStateFromConciliacion(resultados, deudas);
+  initStateFromConciliacion(resultados, deudas, sistemaData.universo);
   currentTab = "identificados";
   renderResults();
   $("#results").style.display = "block";
@@ -1407,15 +1656,17 @@ function buildExportSheets() {
   const revisar = rows.filter(r => r.estado === "A revisar");
   const noIdent = rows.filter(r => r.estado === "Sin identificar");
   const morosos = STATE.deudas.filter(d => d.estado_match !== "PAGADO");
+  const alDia = (STATE.universo || []).filter(u => (u.monto || 0) <= 0);
 
   const txCols = r => ({
-    Fecha: fmtDate(r.fecha), Glosa: r.glosa, Monto: r.monto, Documento: r.documento,
+    Fecha: fmtDate(r.fecha), Glosa: r.glosa, Monto: r.monto, Documento: r.documento, Banco: r.banco || "",
     Unidad: r.unidad, Propietario: r.propietario, Concepto: r.concepto,
     "Tipo de Pago": r.tipo_pago, Estado: r.estado, Metodo: r.metodo,
     Nota: r.nota || "", Adjunto: adjuntoDesc(r),
   });
   const deudaCols = m => ({
     Unidad: m.unidad, Propietario: m.propietario, Concepto: m.concepto, Tipo: m.tipo_concepto,
+    Torre: tipoUnidadDesde(m.unidad),
     Monto: m.monto, Saldo: m.saldo, Vencimiento: fmtDate(m.fecha_venc), Estado: m.estado_match,
     "Pago Inicial": m.plan ? m.plan.pago_inicial : "", "N Cuotas": m.plan ? m.plan.n_cuotas : "",
     "Valor Cuota": m.plan ? Math.round((m.saldo - m.plan.pago_inicial) / m.plan.n_cuotas) : "",
@@ -1423,8 +1674,9 @@ function buildExportSheets() {
   });
 
   return { identificados: identificados.map(txCols), parciales: parciales.map(txCols),
-    revisar: revisar.map(txCols), noIdent: noIdent.map(r => ({ Fecha: fmtDate(r.fecha), Glosa: r.glosa, Monto: r.monto, Documento: r.documento, Nota: r.nota || "", Adjunto: adjuntoDesc(r) })),
-    morosos: morosos.map(deudaCols) };
+    revisar: revisar.map(txCols), noIdent: noIdent.map(r => ({ Fecha: fmtDate(r.fecha), Glosa: r.glosa, Monto: r.monto, Documento: r.documento, Banco: r.banco || "", Nota: r.nota || "", Adjunto: adjuntoDesc(r) })),
+    morosos: morosos.map(deudaCols),
+    alDia: alDia.map(u => ({ Unidad: u.unidad, Propietario: u.propietario, Torre: tipoUnidadDesde(u.unidad), Estado: "Sin deuda pendiente" })) };
 }
 
 function descargarExcel() {
@@ -1435,6 +1687,7 @@ function descargarExcel() {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.revisar), "A_Revisar");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.noIdent), "Pagos_Sin_Identificar");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.morosos), "Morosos_Sin_Pago");
+  if (s.alDia.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.alDia), "Unidades_Al_Dia");
   const filename = `Conciliacion_JDVM_${new Date().toISOString().slice(0, 10)}.xlsx`;
   XLSX.writeFile(wb, filename);
   return filename;
@@ -1482,9 +1735,47 @@ function buildPrintArea() {
   `;
 }
 
+function buildPrintAreaSeleccion() {
+  const rows = STATE.rows;
+  const deudas = STATE.deudas;
+  const universo = STATE.universo || [];
+  const fecha = new Date().toLocaleDateString("es-CL");
+
+  const txSel = rows.filter(r => seleccionados.has(r.row_id));
+  const deudaSel = deudas.filter(d => seleccionados.has(d.deuda_id));
+  const aldiaSel = universo.filter(u => (u.monto || 0) <= 0 && seleccionados.has(u.unidad));
+
+  let html = `<h1>Conciliación de Pagos — JDVM</h1>
+    <p class="p-sub">Selección individual · Generado ${fecha} · ${seleccionados.size} unidad(es)/movimiento(s)</p>`;
+
+  if (txSel.length) {
+    html += `<h2>Movimientos seleccionados (${txSel.length})</h2>
+      <table><thead><tr><th>Fecha</th><th>Glosa</th><th>Monto</th><th>Unidad</th><th>Propietario</th><th>Estado</th></tr></thead>
+      <tbody>${txSel.map(r => `<tr><td>${fmtDate(r.fecha)}</td><td>${r.glosa}</td><td>${fmtMoney(r.monto)}</td><td>${r.unidad || "—"}</td><td>${r.propietario || "—"}</td><td>${r.estado}</td></tr>`).join("")}</tbody></table>`;
+  }
+  if (deudaSel.length) {
+    html += `<h2>Deudas seleccionadas (${deudaSel.length})</h2>
+      <table><thead><tr><th>Unidad</th><th>Propietario</th><th>Concepto</th><th>Saldo</th><th>Estado</th></tr></thead>
+      <tbody>${deudaSel.map(d => `<tr><td>${d.unidad}</td><td>${d.propietario}</td><td>${d.concepto}</td><td>${fmtMoney(d.saldo)}</td><td>${d.estado_match}</td></tr>`).join("")}</tbody></table>`;
+  }
+  if (aldiaSel.length) {
+    html += `<h2>Unidades al día seleccionadas (${aldiaSel.length})</h2>
+      <table><thead><tr><th>Unidad</th><th>Propietario</th></tr></thead>
+      <tbody>${aldiaSel.map(u => `<tr><td>${u.unidad}</td><td>${u.propietario}</td></tr>`).join("")}</tbody></table>`;
+  }
+  $("#print-area").innerHTML = html;
+}
+
 $("#btn-imprimir").addEventListener("click", () => {
   if (!STATE.rows.length) return;
   buildPrintArea();
+  window.print();
+  showToast('También puedes elegir "Guardar como PDF" en el diálogo de impresión para descargarlo.');
+});
+
+$("#btn-imprimir-seleccion").addEventListener("click", () => {
+  if (!seleccionados.size) return;
+  buildPrintAreaSeleccion();
   window.print();
 });
 
@@ -1524,6 +1815,7 @@ function saveDraftLocal() {
       rows: STATE.rows,
       deudas: STATE.deudas,
       tiposPago: STATE.tiposPago,
+      universo: STATE.universo,
     };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
     avisoAlmacenamientoLleno = false;
@@ -1551,6 +1843,7 @@ function restoreDraft(draft) {
   STATE.rows = draft.rows || [];
   STATE.deudas = draft.deudas || [];
   STATE.tiposPago = draft.tiposPago && draft.tiposPago.length ? draft.tiposPago : STATE.tiposPago;
+  STATE.universo = draft.universo || [];
   if (draft.periodo) $("#periodo-label").value = draft.periodo;
   currentTab = "identificados";
   renderResults();
@@ -1695,6 +1988,7 @@ function aplicarDatosDeSheets(full, periodo) {
     adjunto: r.adjunto_url ? { name: "Comprobante guardado", type: "", dataUrl: null, driveUrl: r.adjunto_url } : null,
   }));
   $("#periodo-label").value = periodo;
+  STATE.universo = []; // el censo completo de unidades no queda archivado en Sheets, solo las deudas/pagos
   currentTab = "identificados";
   renderResults();
   $("#results").style.display = "block";
