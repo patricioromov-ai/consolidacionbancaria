@@ -181,6 +181,7 @@
   .linked-info{display:flex;flex-direction:column;gap:3px;}
   .linked-info .u{font-weight:700;color:var(--ink-soft);}
   .linked-info .p{color:var(--slate);font-size:var(--fs-xs);}
+  .linked-info .deb{color:var(--accent-dark);font-size:var(--fs-xs);font-weight:700;display:block;margin-top:2px;}
   .unlink-btn{border:none;background:none;color:var(--bad);font-size:var(--fs-xs);font-weight:700;cursor:pointer;padding:2px 0;margin-top:4px;text-align:left;min-height:28px;}
   .unlink-btn:hover{text-decoration:underline;}
 
@@ -1003,7 +1004,7 @@ function linkRow(row, deudaId) {
 
 /* ---------------- Render principal ---------------- */
 
-const FILTERS = { tipoUnidad: null, montoMin: null, tipoPago: null, banco: null, soloAnomalias: false };
+const FILTERS = { tipoUnidad: null, montoMin: null, tipoPago: null, banco: null, estadoDeuda: null, soloAnomalias: false };
 let seleccionados = new Set();
 
 function idDe(kind, item) {
@@ -1051,14 +1052,17 @@ function aplicarFiltros(data, kind, anomalias) {
     }
     if (kind === "tx" && FILTERS.tipoPago && item.tipo_pago !== FILTERS.tipoPago) return false;
     if (kind === "tx" && FILTERS.banco && (item.banco || "Sin especificar") !== FILTERS.banco) return false;
+    if (kind === "deuda" && FILTERS.estadoDeuda && item.estado_match !== FILTERS.estadoDeuda) return false;
     if (FILTERS.soloAnomalias && !anomalias.has(idDe(kind, item))) return false;
     return true;
   });
 }
 
 function filtrosActivos() {
-  return !!(FILTERS.tipoUnidad || FILTERS.montoMin != null || FILTERS.tipoPago || FILTERS.banco || FILTERS.soloAnomalias);
+  return !!(FILTERS.tipoUnidad || FILTERS.montoMin != null || FILTERS.tipoPago || FILTERS.banco || FILTERS.estadoDeuda || FILTERS.soloAnomalias);
 }
+
+const ESTADO_DEUDA_LABEL = { PENDIENTE: "Pendiente", PARCIAL: "Parcial", PAGADO: "Pagado", PLAN_DE_PAGO: "Plan de pago" };
 
 function renderFilterBar(fullData, kind) {
   const el = $("#filter-bar");
@@ -1074,6 +1078,18 @@ function renderFilterBar(fullData, kind) {
       html += `<button class="chip ${FILTERS.tipoUnidad === t ? "active" : ""}" data-filter="tipoUnidad" data-value="${t}">${t}</button>`;
     });
     html += `</div>`;
+  }
+
+  if (kind === "deuda") {
+    const estados = [...new Set(fullData.map(d => d.estado_match))];
+    if (estados.length > 1) {
+      html += `<div class="filter-group"><span class="filter-label">📋 Estado:</span>`;
+      html += `<button class="chip ${!FILTERS.estadoDeuda ? "active" : ""}" data-filter="estadoDeuda" data-value="">Todos</button>`;
+      estados.forEach(e => {
+        html += `<button class="chip ${FILTERS.estadoDeuda === e ? "active" : ""}" data-filter="estadoDeuda" data-value="${e}">${ESTADO_DEUDA_LABEL[e] || e}</button>`;
+      });
+      html += `</div>`;
+    }
   }
 
   if (kind === "tx") {
@@ -1107,6 +1123,9 @@ function renderFilterBar(fullData, kind) {
   el.querySelectorAll('[data-filter="tipoUnidad"]').forEach(btn => {
     btn.addEventListener("click", () => { FILTERS.tipoUnidad = btn.dataset.value || null; renderResults(); });
   });
+  el.querySelectorAll('[data-filter="estadoDeuda"]').forEach(btn => {
+    btn.addEventListener("click", () => { FILTERS.estadoDeuda = btn.dataset.value || null; renderResults(); });
+  });
   const selTipoPago = $("#filtro-tipopago");
   if (selTipoPago) selTipoPago.addEventListener("change", () => { FILTERS.tipoPago = selTipoPago.value || null; renderResults(); });
   const selBanco = $("#filtro-banco");
@@ -1117,7 +1136,7 @@ function renderFilterBar(fullData, kind) {
   if (btnAnom) btnAnom.addEventListener("click", () => { FILTERS.soloAnomalias = !FILTERS.soloAnomalias; renderResults(); });
   const btnLimpiar = $("#filtro-limpiar");
   if (btnLimpiar) btnLimpiar.addEventListener("click", () => {
-    FILTERS.tipoUnidad = null; FILTERS.montoMin = null; FILTERS.tipoPago = null; FILTERS.banco = null; FILTERS.soloAnomalias = false;
+    FILTERS.tipoUnidad = null; FILTERS.montoMin = null; FILTERS.tipoPago = null; FILTERS.banco = null; FILTERS.estadoDeuda = null; FILTERS.soloAnomalias = false;
     renderResults();
   });
 }
@@ -1219,6 +1238,22 @@ function vincularOptions(row) {
   return `<option value="">— sin vincular —</option>` + opts;
 }
 
+// Muestra cuánto se debía originalmente (no el saldo actual, que puede ya
+// estar en 0 si este pago la cubrió) para las deudas vinculadas a este pago.
+function debiaDesc(row) {
+  if (!row.deuda_ids || !row.deuda_ids.length) return "";
+  const deudasVinculadas = row.deuda_ids.map(id => STATE.deudas.find(d => d.deuda_id === id)).filter(Boolean);
+  if (!deudasVinculadas.length) return "";
+  const totalAdeudado = deudasVinculadas.reduce((a, d) => a + d.monto, 0);
+  if (deudasVinculadas.length > 1) {
+    return `Debía en total: ${fmtMoney(totalAdeudado)} (${deudasVinculadas.length} conceptos combinados)`;
+  }
+  const diff = row.monto - totalAdeudado;
+  if (Math.abs(diff) <= 1) return `Debía: ${fmtMoney(totalAdeudado)} · pagó completo ✓`;
+  if (diff > 0) return `Debía: ${fmtMoney(totalAdeudado)} · pagó ${fmtMoney(diff)} de más`;
+  return `Debía: ${fmtMoney(totalAdeudado)}`;
+}
+
 function attachButton(kind, id, item) {
   const has = !!(item.nota || item.adjunto);
   const label = has ? "📎 Ver respaldo" : "➕ Agregar respaldo";
@@ -1264,6 +1299,7 @@ function renderTable(tabInfo, anomalias) {
                   ? `<div class="linked-info">
                        <span class="u">${r.unidad}</span>
                        <span class="p">${r.propietario} · ${r.concepto}</span>
+                       <span class="deb">${debiaDesc(r)}</span>
                        <button class="unlink-btn" data-action="unlink" data-row="${r.row_id}">✕ Desvincular</button>
                      </div>`
                   : `<select class="cell-select" data-action="link" data-row="${r.row_id}">${vincularOptions(r)}</select>`
