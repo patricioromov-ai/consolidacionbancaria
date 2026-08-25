@@ -359,19 +359,20 @@
         <strong>Guardado automático</strong>
         <span class="sync-status" id="sync-status">local, en este navegador</span>
       </div>
-      <button class="btn btn-ghost btn-sm" id="btn-sync-config-toggle">⚙ Conectar Google Sheets</button>
+      <button class="btn btn-ghost btn-sm" id="btn-sync-config-toggle">⚙ Configuración</button>
     </div>
     <div class="sync-body" id="sync-body">
       <p class="hint" style="margin:0 0 12px;">
-        Sin configurar nada, tus cambios se auto-guardan en este navegador (sobreviven a recargar la página,
-        pero no a limpiar datos del navegador ni a cambiar de computador). Si quieres historial mes a mes
-        accesible desde cualquier dispositivo, conecta una Google Sheet — instrucciones abajo en el sitio.
+        Este sitio ya viene conectado a la Google Sheet de JDVM — no necesitas configurar nada, funciona igual
+        lo abras desde el computador o el celular. Además, cada cambio que hagas se auto-guarda en este
+        navegador como respaldo mientras trabajas (por si recargas por accidente antes de guardar en Sheets).
       </p>
       <div class="sync-row">
         <input type="text" id="sheets-url" class="cell-input" style="max-width:none;flex:1;"
-          placeholder="Pega aquí la URL de tu Apps Script Web App (termina en /exec)">
-        <button class="btn btn-ghost btn-sm" id="btn-guardar-config">Guardar configuración</button>
+          placeholder="URL de Apps Script Web App (termina en /exec)">
+        <button class="btn btn-ghost btn-sm" id="btn-guardar-config">Guardar</button>
       </div>
+      <p class="field-help"><span class="ic">💡</span> Solo toca este campo si necesitas conectar una Sheet distinta a la de siempre.</p>
     </div>
   </div>
 
@@ -1915,17 +1916,32 @@ $("#btn-draft-descartar").addEventListener("click", () => {
 $("#periodo-label").addEventListener("change", saveDraftLocal);
 
 /* =========================================================================
-   SINCRONIZACIÓN CON GOOGLE SHEETS (opcional)
+   SINCRONIZACIÓN CON GOOGLE SHEETS
    ========================================================================= */
+// URL fija del backend de Apps Script — así el sitio queda conectado a la
+// misma Google Sheet sin importar desde qué dispositivo se abra. Si alguna
+// vez despliegas una URL nueva (Implementar → Gestionar implementaciones),
+// solo actualiza esta línea y todos los dispositivos quedan al día apenas
+// vuelvan a cargar el sitio (o descargar el archivo nuevamente).
+const DEFAULT_SHEETS_URL = "https://script.google.com/macros/s/AKfycby3YO6nGTdGSpQgAue2sEkpBekWiicGkVyudBbJmfHL4z3UUP6oTo7HYpqW9MsrFQWrsg/exec";
+
 const SHEETS_URL_KEY = "jdvm_sheets_url";
-const getSheetsUrl = () => { try { return localStorage.getItem(SHEETS_URL_KEY) || ""; } catch (e) { return ""; } };
+// Si el navegador tiene una URL guardada manualmente (override), se respeta esa;
+// si no, se usa la URL fija de arriba — así funciona igual en cualquier dispositivo
+// sin tener que configurar nada.
+const getSheetsUrl = () => { try { return localStorage.getItem(SHEETS_URL_KEY) || DEFAULT_SHEETS_URL; } catch (e) { return DEFAULT_SHEETS_URL; } };
 const setSheetsUrl = (u) => { try { localStorage.setItem(SHEETS_URL_KEY, u); } catch (e) {} };
+const usandoUrlPorDefecto = () => {
+  try { return !localStorage.getItem(SHEETS_URL_KEY); } catch (e) { return true; }
+};
 
 function refreshSyncStatus() {
   const url = getSheetsUrl();
   $("#sheets-url").value = url;
   $("#sync-dot").classList.toggle("on", !!url);
-  $("#sync-status").textContent = url ? "conectado a Google Sheets" : "local, en este navegador";
+  $("#sync-status").textContent = url
+    ? (usandoUrlPorDefecto() ? "conectado a Google Sheets (siempre disponible en este sitio)" : "conectado a Google Sheets (URL personalizada)")
+    : "local, en este navegador";
 }
 refreshSyncStatus();
 
