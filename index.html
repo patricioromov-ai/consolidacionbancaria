@@ -624,10 +624,14 @@ function loadCartola(rows) {
   if (!rows.length) throw new Error("La cartola está vacía.");
   const cols = Object.keys(rows[0]);
   const colFecha = detectColumn(cols, ["fecha"]);
-  const colMonto = detectColumn(cols, ["monto abono", "abono", "haber", "monto", "valor"], ["cargo"]);
+  const colMonto = detectColumn(cols, ["monto abono", "ingreso", "abono", "haber", "monto", "valor"], ["cargo", "egreso"]);
   const colGlosa = detectColumn(cols, ["glosa", "descripcion", "detalle", "concepto"]);
-  const colDoc = detectColumn(cols, ["documento", "referencia", "n doc", "folio", "comprobante"]);
+  const colDoc = detectColumn(cols, ["documento", "referencia", "n doc", "folio", "comprobante"], ["comentario"]);
   const colBanco = detectColumn(cols, ["banco", "cuenta"]);
+  // "Comentario transferencia" (BCI y otros) suele traer la referencia real del
+  // pago (ej. "Gastos comunes depto 1309 torre B") - se suma a la glosa porque
+  // ayuda muchísimo a identificar al pagador, más que el nombre solo.
+  const colComentario = detectColumn(cols, ["comentario transferencia", "comentario", "mensaje transferencia", "glosa adicional"]);
 
   const missing = [];
   if (!colFecha) missing.push("Fecha");
@@ -641,10 +645,13 @@ function loadCartola(rows) {
   rows.forEach((r, idx) => {
     const monto = toNumber(r[colMonto]);
     if (!monto || monto <= 0) return;
+    let glosa = String(r[colGlosa] ?? "").trim();
+    const comentario = colComentario ? String(r[colComentario] ?? "").trim() : "";
+    if (comentario) glosa = glosa ? `${glosa} — ${comentario}` : comentario;
     out.push({
       tx_id: `TX${String(idx + 1).padStart(4, "0")}`,
       fecha: parseDate(r[colFecha]),
-      glosa: String(r[colGlosa] ?? ""),
+      glosa,
       monto,
       documento: colDoc ? String(r[colDoc] ?? "") : "",
       banco: colBanco ? String(r[colBanco] ?? "").trim() : "",
