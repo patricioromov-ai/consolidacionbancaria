@@ -684,36 +684,60 @@ function clasificarConcepto(concepto) {
    Soporte para el formato "Informe en Detalle" de Edifito: trae columnas
    Cobro/Descuento/Pago/Fecha Pago REPETIDAS, una por cada periodo (mes), en
    vez de una sola columna de "Saldo Pendiente" como el "Resumen de Pagos".
-   No hay ninguna etiqueta en el archivo que diga a qué mes corresponde cada
-   bloque de columnas, así que se infiere mirando las fechas de pago reales
-   dentro de cada bloque (la mayoría va a ser del mismo mes).
+   El nombre exacto de esas columnas varía según cómo lo exporte cada vez
+   ("Cobro" / "Cobro JUNIO" / "JULIO"...), así que los bloques se detectan
+   por POSICIÓN (de a 4 columnas, después de Unidad/Nombre) en vez de por
+   texto exacto. El periodo de cada bloque se busca primero en el propio
+   encabezado (ej. "Cobro JUNIO" -> Junio); si ningún encabezado del bloque
+   trae un mes, se infiere mirando las fechas de pago reales como respaldo
+   -- pero el encabezado manda, porque una fecha de pago puede ser muy
+   posterior al mes que realmente se cobró (pagos atrasados).
 --------------------------------------------------------------------------- */
 
 const MESES_ES = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
 
-function baseHeaderName(h) {
-  return h.replace(/\s*\(\d+\)$/, "").trim();
+function capitalizar(palabra) {
+  return palabra.charAt(0) + palabra.slice(1).toLowerCase();
 }
 
-// Agrupa columnas por nombre base y arma un "bloque" (Cobro+Descuento+Pago+Fecha Pago)
-// por cada repetición encontrada. Devuelve null si el archivo no calza con este patrón.
-function detectarBloquesCobroPago(cols) {
-  const grupos = {};
-  cols.forEach(c => {
-    const base = normalizeText(baseHeaderName(c));
-    if (!grupos[base]) grupos[base] = [];
-    grupos[base].push(c);
+// Busca un nombre de mes español dentro de un texto cualquiera (encabezado de columna).
+function extraerMesDeTexto(texto) {
+  const t = normalizeText(texto);
+  for (const mes of MESES_ES) { if (t.includes(mes)) return mes; }
+  return null;
+}
+
+// Agrupa las columnas que sobran (todas menos Unidad/Nombre) de a 4 en 4:
+// Cobro, Descuento, Pago, Fecha Pago -- por POSICIÓN, sin importar cómo se
+// llamen exactamente. Devuelve null si no hay al menos 2 bloques completos.
+function detectarBloquesCobroPago(cols, colUnidad, colProp) {
+  const resto = cols.filter(c => c !== colUnidad && c !== colProp);
+  const bloques = [];
+  for (let i = 0; i + 3 < resto.length; i += 4) {
+    bloques.push({ cobro: resto[i], descuento: resto[i + 1], pago: resto[i + 2], fechaPago: resto[i + 3] });
+  }
+  return bloques.length >= 2 ? bloques : null;
+}
+
+// Año más frecuente entre las fechas de pago reales de un bloque (para
+// completar el mes que sí viene en el encabezado, ya que el encabezado no
+// suele traer el año).
+function inferirAnioDeFechas(rows, colFechaPago) {
+  if (!colFechaPago) return null;
+  const cuenta = {};
+  rows.forEach(r => {
+    const v = r[colFechaPago];
+    if (!v || typeof v !== "string") return;
+    const m = v.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (m) cuenta[m[3]] = (cuenta[m[3]] || 0) + 1;
   });
-  const cobroCols = grupos["COBRO"] || [];
-  const pagoCols = grupos["PAGO"] || [];
-  if (cobroCols.length < 2 || pagoCols.length < 2 || cobroCols.length !== pagoCols.length) return null;
-  const descuentoCols = grupos["DESCUENTO"] || [];
-  const fechaPagoCols = grupos["FECHA PAGO"] || [];
-  return cobroCols.map((c, i) => ({ cobro: c, descuento: descuentoCols[i] || null, pago: pagoCols[i], fechaPago: fechaPagoCols[i] || null }));
+  let mejor = null, max = 0;
+  Object.keys(cuenta).forEach(k => { if (cuenta[k] > max) { max = cuenta[k]; mejor = k; } });
+  return mejor;
 }
 
-// Mira todas las "Fecha Pago" de un bloque, se queda con las que parecen
-// fecha real (dd-mm-aaaa) e infiere el mes/año que más se repite.
+// Mes/año que más se repite entre las fechas de pago reales de un bloque
+// (respaldo, solo se usa si el encabezado no trae el mes explícito).
 function inferirPeriodoDeFechas(rows, colFechaPago) {
   if (!colFechaPago) return null;
   const cuenta = {};
@@ -731,16 +755,29 @@ function inferirPeriodoDeFechas(rows, colFechaPago) {
   Object.keys(cuenta).forEach(k => { if (cuenta[k] > max) { max = cuenta[k]; mejor = k; } });
   if (!mejor) return null;
   const [mesNum, anio] = mejor.split("|");
-  const nombreMes = MESES_ES[parseInt(mesNum, 10) - 1];
-  return `${nombreMes.charAt(0)}${nombreMes.slice(1).toLowerCase()} ${anio}`;
+  return `${capitalizar(MESES_ES[parseInt(mesNum, 10) - 1])} ${anio}`;
 }
 
-function loadSistemaInformeDetalle(rows, cols, bloques) {
-  const colUnidad = detectColumn(cols, ["unidad", "depto", "departamento"]);
-  const colProp = detectColumn(cols, ["propietario", "residente", "copropietario", "nombre"]);
-  if (!colUnidad) return null;
+// Etiqueta final de un bloque: primero busca un mes en cualquiera de sus 4
+// encabezados (fuente confiable); si no encuentra ninguno, cae al respaldo
+// de inferir todo (mes y año) desde las fechas de pago reales.
+function etiquetarPeriodoBloque(rows, bloque, indice) {
+  const headers = [bloque.cobro, bloque.descuento, bloque.pago, bloque.fechaPago].filter(Boolean);
+  for (const h of headers) {
+    const mes = extraerMesDeTexto(h);
+    if (mes) {
+      const anio = inferirAnioDeFechas(rows, bloque.fechaPago) || String(new Date().getFullYear());
+      return `${capitalizar(mes)} ${anio}`;
+    }
+  }
+  return inferirPeriodoDeFechas(rows, bloque.fechaPago) || `Periodo ${indice + 1}`;
+}
 
-  const periodosFinal = bloques.map((b, i) => inferirPeriodoDeFechas(rows, b.fechaPago) || `Periodo ${i + 1}`);
+function loadSistemaInformeDetalle(rows, cols, colUnidad, colProp) {
+  const bloques = detectarBloquesCobroPago(cols, colUnidad, colProp);
+  if (!bloques || !colUnidad) return null;
+
+  const periodosFinal = bloques.map((b, i) => etiquetarPeriodoBloque(rows, b, i));
 
   const universo = [];
   const out = [];
@@ -805,11 +842,8 @@ function loadSistema(rows, titleText) {
   if (!colMonto) {
     // No hay una columna de monto única -- puede ser un "Informe en Detalle"
     // con columnas Cobro/Descuento/Pago/Fecha Pago repetidas (una por mes).
-    const bloques = detectarBloquesCobroPago(cols);
-    if (bloques) {
-      const resultado = loadSistemaInformeDetalle(rows, cols, bloques);
-      if (resultado) return resultado;
-    }
+    const resultado = loadSistemaInformeDetalle(rows, cols, colUnidad, colProp);
+    if (resultado) return resultado;
   }
 
   const missing = [];
