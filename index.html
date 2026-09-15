@@ -602,7 +602,15 @@ function smartRowsFromAOA(aoa) {
     if (score > bestScore) { bestScore = score; headerRowIdx = i; }
   }
   const headerRow = aoa[headerRowIdx] || [];
-  const headers = headerRow.map((h, i) => (h === "" || h === null || h === undefined) ? `Columna ${i + 1}` : String(h).trim());
+  // Si el mismo nombre de columna se repite (ej. "Cobro" dos veces, para dos
+  // periodos distintos), se desambigua como "Cobro" y "Cobro (2)" -- si no,
+  // la segunda pisaría a la primera y se perderían datos en silencio.
+  const vistos = {};
+  const headers = headerRow.map((h, i) => {
+    let name = (h === "" || h === null || h === undefined) ? `Columna ${i + 1}` : String(h).trim();
+    if (vistos[name] === undefined) { vistos[name] = 0; } else { vistos[name]++; name = `${name} (${vistos[name] + 1})`; }
+    return name;
+  });
   const dataRows = aoa.slice(headerRowIdx + 1).filter(r => r.some(c => c !== "" && c !== null && c !== undefined));
   const rows = dataRows.map(r => {
     const obj = {};
@@ -672,6 +680,102 @@ function clasificarConcepto(concepto) {
   return "Gasto Común";
 }
 
+/* ---------------------------------------------------------------------------
+   Soporte para el formato "Informe en Detalle" de Edifito: trae columnas
+   Cobro/Descuento/Pago/Fecha Pago REPETIDAS, una por cada periodo (mes), en
+   vez de una sola columna de "Saldo Pendiente" como el "Resumen de Pagos".
+   No hay ninguna etiqueta en el archivo que diga a qué mes corresponde cada
+   bloque de columnas, así que se infiere mirando las fechas de pago reales
+   dentro de cada bloque (la mayoría va a ser del mismo mes).
+--------------------------------------------------------------------------- */
+
+const MESES_ES = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
+
+function baseHeaderName(h) {
+  return h.replace(/\s*\(\d+\)$/, "").trim();
+}
+
+// Agrupa columnas por nombre base y arma un "bloque" (Cobro+Descuento+Pago+Fecha Pago)
+// por cada repetición encontrada. Devuelve null si el archivo no calza con este patrón.
+function detectarBloquesCobroPago(cols) {
+  const grupos = {};
+  cols.forEach(c => {
+    const base = normalizeText(baseHeaderName(c));
+    if (!grupos[base]) grupos[base] = [];
+    grupos[base].push(c);
+  });
+  const cobroCols = grupos["COBRO"] || [];
+  const pagoCols = grupos["PAGO"] || [];
+  if (cobroCols.length < 2 || pagoCols.length < 2 || cobroCols.length !== pagoCols.length) return null;
+  const descuentoCols = grupos["DESCUENTO"] || [];
+  const fechaPagoCols = grupos["FECHA PAGO"] || [];
+  return cobroCols.map((c, i) => ({ cobro: c, descuento: descuentoCols[i] || null, pago: pagoCols[i], fechaPago: fechaPagoCols[i] || null }));
+}
+
+// Mira todas las "Fecha Pago" de un bloque, se queda con las que parecen
+// fecha real (dd-mm-aaaa) e infiere el mes/año que más se repite.
+function inferirPeriodoDeFechas(rows, colFechaPago) {
+  if (!colFechaPago) return null;
+  const cuenta = {};
+  rows.forEach(r => {
+    const v = r[colFechaPago];
+    if (!v || typeof v !== "string") return;
+    const m = v.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (!m) return;
+    const mes = parseInt(m[2], 10);
+    if (mes < 1 || mes > 12) return;
+    const key = `${mes}|${m[3]}`;
+    cuenta[key] = (cuenta[key] || 0) + 1;
+  });
+  let mejor = null, max = 0;
+  Object.keys(cuenta).forEach(k => { if (cuenta[k] > max) { max = cuenta[k]; mejor = k; } });
+  if (!mejor) return null;
+  const [mesNum, anio] = mejor.split("|");
+  const nombreMes = MESES_ES[parseInt(mesNum, 10) - 1];
+  return `${nombreMes.charAt(0)}${nombreMes.slice(1).toLowerCase()} ${anio}`;
+}
+
+function loadSistemaInformeDetalle(rows, cols, bloques) {
+  const colUnidad = detectColumn(cols, ["unidad", "depto", "departamento"]);
+  const colProp = detectColumn(cols, ["propietario", "residente", "copropietario", "nombre"]);
+  if (!colUnidad) return null;
+
+  const periodosFinal = bloques.map((b, i) => inferirPeriodoDeFechas(rows, b.fechaPago) || `Periodo ${i + 1}`);
+
+  const universo = [];
+  const out = [];
+  let contador = 0;
+  rows.forEach(r => {
+    const unidadTxt = String(r[colUnidad] ?? "").trim();
+    if (!unidadTxt || normalizeText(unidadTxt).includes("TOTAL")) return;
+    let propietario = colProp ? String(r[colProp] ?? "").trim() : "";
+    if (!propietario) propietario = `(Sin nombre registrado — ${unidadTxt})`;
+
+    let saldoTotalUnidad = 0;
+    bloques.forEach((b, i) => {
+      const cobro = toNumber(r[b.cobro]) || 0;
+      const descuento = b.descuento ? (toNumber(r[b.descuento]) || 0) : 0;
+      const pago = toNumber(r[b.pago]) || 0;
+      const saldo = cobro - descuento - pago;
+      saldoTotalUnidad += Math.max(0, saldo);
+      if (saldo > 0) {
+        contador++;
+        const concepto = `Gasto Común ${periodosFinal[i]}`;
+        out.push({
+          deuda_id: `DEU${String(contador).padStart(4, "0")}`,
+          unidad: unidadTxt, propietario, concepto,
+          tipo_concepto: clasificarConcepto(concepto),
+          monto: saldo, saldo, fecha_venc: null, estado_sistema: "", estado_match: "PENDIENTE",
+        });
+      }
+    });
+    universo.push({ unidad: unidadTxt, propietario, monto: saldoTotalUnidad });
+  });
+  out.universo = universo;
+  out._periodosDetectados = periodosFinal; // informativo, para el mensaje al usuario
+  return out;
+}
+
 // Clasifica una unidad por su código (A-0001, BOD-014A, EST-..., etc.) en su
 // torre / tipo, para poder filtrar por torre, estacionamiento o bodega.
 function tipoUnidadDesde(unidadRaw) {
@@ -697,6 +801,16 @@ function loadSistema(rows, titleText) {
   const colMonto = detectColumn(cols, ["saldo pendiente", "monto adeudado", "adeudado", "deuda", "saldo", "monto", "valor", "total cobro"]);
   const colFVenc = detectColumn(cols, ["vencimiento", "fecha"]);
   const colEstado = detectColumn(cols, ["estado"]);
+
+  if (!colMonto) {
+    // No hay una columna de monto única -- puede ser un "Informe en Detalle"
+    // con columnas Cobro/Descuento/Pago/Fecha Pago repetidas (una por mes).
+    const bloques = detectarBloquesCobroPago(cols);
+    if (bloques) {
+      const resultado = loadSistemaInformeDetalle(rows, cols, bloques);
+      if (resultado) return resultado;
+    }
+  }
 
   const missing = [];
   if (!colUnidad) missing.push("Unidad");
@@ -1628,12 +1742,12 @@ function setupDropzone(zoneId, inputId, onLoaded) {
   input.addEventListener("change", async () => { if (input.files.length) await onLoaded(input.files[0]); });
 }
 
-function renderFileInfo(containerId, file, count, error) {
+function renderFileInfo(containerId, file, count, error, extraMsg) {
   const el = $(containerId);
   if (error) { el.innerHTML = `<div class="file-error">⚠ ${error}</div>`; return; }
   el.innerHTML = `
     <div class="file-chip">
-      <div><div class="name">${file.name}</div><div class="meta">${count} filas detectadas</div></div>
+      <div><div class="name">${file.name}</div><div class="meta">${count} filas detectadas${extraMsg ? " · " + extraMsg : ""}</div></div>
       <button title="Quitar">✕</button>
     </div>`;
   el.querySelector("button").addEventListener("click", () => {
@@ -1661,7 +1775,10 @@ setupDropzone("#dz-sistema", "#file-sistema", async (file) => {
   try {
     const parsed = await readFileAsRows(file);
     sistemaData = loadSistema(parsed.rows, parsed.titleText);
-    renderFileInfo("#info-sistema", file, sistemaData.length, null);
+    const extra = sistemaData._periodosDetectados
+      ? `formato "Informe en Detalle", periodos detectados: ${sistemaData._periodosDetectados.join(", ")}`
+      : null;
+    renderFileInfo("#info-sistema", file, sistemaData.length, null, extra);
   } catch (err) { sistemaData = null; renderFileInfo("#info-sistema", file, 0, err.message); }
   updateConciliarBtn();
 });
