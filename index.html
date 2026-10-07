@@ -716,7 +716,7 @@ function detectarBloquesCobroPago(cols, colUnidad, colProp) {
   for (let i = 0; i + 3 < resto.length; i += 4) {
     bloques.push({ cobro: resto[i], descuento: resto[i + 1], pago: resto[i + 2], fechaPago: resto[i + 3] });
   }
-  return bloques.length >= 2 ? bloques : null;
+  return bloques.length >= 1 ? bloques : null;
 }
 
 // Año más frecuente entre las fechas de pago reales de un bloque (para
@@ -761,7 +761,18 @@ function inferirPeriodoDeFechas(rows, colFechaPago) {
 // Etiqueta final de un bloque: primero busca un mes en cualquiera de sus 4
 // encabezados (fuente confiable); si no encuentra ninguno, cae al respaldo
 // de inferir todo (mes y año) desde las fechas de pago reales.
-function etiquetarPeriodoBloque(rows, bloque, indice) {
+// Periodo desde el texto que está sobre la tabla (título del informe): acepta
+// "mes de Junio del 2026" o un mes suelto ("Agosto") junto a un año ("2026").
+function periodoDesdeTitulo(titleText) {
+  if (!titleText) return null;
+  const directo = detectarPeriodo(titleText);
+  if (directo && extraerMesDeTexto(directo)) return directo;
+  const mes = extraerMesDeTexto(titleText);
+  const anio = (String(titleText).match(/\b(20\d{2})\b/) || [])[1];
+  return mes && anio ? `${capitalizar(mes)} ${anio}` : null;
+}
+
+function etiquetarPeriodoBloque(rows, bloque, indice, totalBloques, titleText) {
   const headers = [bloque.cobro, bloque.descuento, bloque.pago, bloque.fechaPago].filter(Boolean);
   for (const h of headers) {
     const mes = extraerMesDeTexto(h);
@@ -770,14 +781,17 @@ function etiquetarPeriodoBloque(rows, bloque, indice) {
       return `${capitalizar(mes)} ${anio}`;
     }
   }
+  // Un solo bloque y sin mes en el encabezado: NO se adivina por fechas de pago
+  // (pueden ser de meses posteriores). Se usa el título, o queda sin mes.
+  if (totalBloques === 1) return periodoDesdeTitulo(titleText);
   return inferirPeriodoDeFechas(rows, bloque.fechaPago) || `Periodo ${indice + 1}`;
 }
 
-function loadSistemaInformeDetalle(rows, cols, colUnidad, colProp) {
+function loadSistemaInformeDetalle(rows, cols, colUnidad, colProp, titleText) {
   const bloques = detectarBloquesCobroPago(cols, colUnidad, colProp);
   if (!bloques || !colUnidad) return null;
 
-  const periodosFinal = bloques.map((b, i) => etiquetarPeriodoBloque(rows, b, i));
+  const periodosFinal = bloques.map((b, i) => etiquetarPeriodoBloque(rows, b, i, bloques.length, titleText));
 
   const universo = [];
   const out = [];
@@ -797,7 +811,7 @@ function loadSistemaInformeDetalle(rows, cols, colUnidad, colProp) {
       saldoTotalUnidad += Math.max(0, saldo);
       if (saldo > 0) {
         contador++;
-        const concepto = `Gasto Común ${periodosFinal[i]}`;
+        const concepto = periodosFinal[i] ? `Gasto Común ${periodosFinal[i]}` : "Gasto Común";
         out.push({
           deuda_id: `DEU${String(contador).padStart(4, "0")}`,
           unidad: unidadTxt, propietario, concepto,
@@ -809,7 +823,7 @@ function loadSistemaInformeDetalle(rows, cols, colUnidad, colProp) {
     universo.push({ unidad: unidadTxt, propietario, monto: saldoTotalUnidad });
   });
   out.universo = universo;
-  out._periodosDetectados = periodosFinal; // informativo, para el mensaje al usuario
+  out._periodosDetectados = periodosFinal.map(p => p || "mes no indicado en el archivo"); // informativo, para el mensaje al usuario
   return out;
 }
 
@@ -830,7 +844,9 @@ function tipoUnidadDesde(unidadRaw) {
 function loadSistema(rows, titleText) {
   if (!rows.length) throw new Error("El archivo del sistema está vacío.");
   const cols = Object.keys(rows[0]);
-  const colUnidad = detectColumn(cols, ["unidad", "depto", "departamento"]);
+  // "UCO" (Unidad de Copropiedad) es como llama Edifito a la unidad en el "Informe en Detalle".
+  const colUnidad = detectColumn(cols, ["unidad", "depto", "departamento"])
+    || cols.find(c => normalizeText(c).trim() === "UCO") || null;
   const colProp = detectColumn(cols, ["propietario", "residente", "copropietario", "nombre"]);
   const colConcepto = detectColumn(cols, ["concepto", "tipo de cobro", "detalle", "glosa"]);
   // "Saldo Pendiente" va primero: en exports reales (ej. Edifito) puede existir junto a
@@ -842,7 +858,7 @@ function loadSistema(rows, titleText) {
   if (!colMonto) {
     // No hay una columna de monto única -- puede ser un "Informe en Detalle"
     // con columnas Cobro/Descuento/Pago/Fecha Pago repetidas (una por mes).
-    const resultado = loadSistemaInformeDetalle(rows, cols, colUnidad, colProp);
+    const resultado = loadSistemaInformeDetalle(rows, cols, colUnidad, colProp, titleText);
     if (resultado) return resultado;
   }
 
